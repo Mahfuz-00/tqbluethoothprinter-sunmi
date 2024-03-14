@@ -1,51 +1,43 @@
 package com.example.tqbluetoothprinter
 
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import android.text.Layout
+import android.content.Context
+import android.os.Bundle
+import android.os.RemoteException
 import android.util.Log
-import com.zcs.sdk.DriverManager
-import com.zcs.sdk.Printer
-import com.zcs.sdk.SdkResult
-import com.zcs.sdk.Sys
-import com.zcs.sdk.print.PrnStrFormat
-import com.zcs.sdk.print.PrnTextFont
-import com.zcs.sdk.print.PrnTextStyle
+import com.sunmi.peripheral.printer.InnerPrinterCallback
+import com.sunmi.peripheral.printer.InnerPrinterException
+import com.sunmi.peripheral.printer.InnerPrinterManager
+import com.sunmi.peripheral.printer.WoyouConsts
+import com.sunmi.peripheral.printer.SunmiPrinterService
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugins.GeneratedPluginRegistrant
 
-
 class MainActivity : FlutterActivity() {
-    private var CHANNEL = "ZCSPOSSDK"
-    private var mDriverManager: DriverManager = DriverManager.getInstance();
-    private var mSys: Sys = mDriverManager.getBaseSysDevice();
-    private var mPrinter: Printer = mDriverManager.getPrinter();
-    private var isSdkInitialized = false
+
+    private val TAG = "PrinterMainActivity"
+    private var sunmiPrinterService: SunmiPrinterService? = null
+    private val CHANNEL = "SumniTalkingPOS"
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
-        //super.configureFlutterEngine(flutterEngine)
+        super.configureFlutterEngine(flutterEngine)
         GeneratedPluginRegistrant.registerWith(flutterEngine)
 
-
-
-        var methodChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "ZCSPOSSDK")
-        methodChannel.setMethodCallHandler { call, result ->
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "initializeSdk" -> {
-                    // Handle initialization method call
-                    var success = initializeSdk()
+                    val success = initializeSdk()
                     result.success(success)
                 }
                 "printReceipt" -> {
-                    // Handle print receipt method call
-                    var token = call.argument<String>("token")
-                    var time = call.argument<String>("time")
-                    var nameEn = call.argument<String>("nameEn")
-                    var nameBn = call.argument<String>("nameBn")
-                    var companyName = call.argument<String>("companyName")
-                    var success = printReceipt(token, time, nameEn, nameBn, companyName)
+                    val token = call.argument<String>("token")
+                    val time = call.argument<String>("time")
+                    val nameEn = call.argument<String>("nameEn")
+                    val nameBn = call.argument<String>("nameBn")
+                    val companyName = call.argument<String>("companyName")
+                    val success = printReceipt(token, time, nameEn, nameBn, companyName)
                     result.success(success)
                 }
                 else -> {
@@ -57,94 +49,85 @@ class MainActivity : FlutterActivity() {
 
     private fun initializeSdk(): Boolean {
         try {
-            var status: Int = mSys!!.sdkInit()
-            if (status != SdkResult.SDK_OK) {
-                mSys!!.sysPowerOn()
-                Thread.sleep(1000)
-                status = mSys!!.sdkInit()
-                if (status != SdkResult.SDK_OK) {
-                    Log.e("SDK Initialization", "Failed to initialize SDK")
-                    return false
-                }
-            }
-            isSdkInitialized = true
-            return true
+            val context: Context = this
+            val result = InnerPrinterManager.getInstance().bindService(context, innerPrinterCallback)
+            return result
         } catch (e: Exception) {
-            Log.e("SDK Initialization", "Failed to initialize SDK", e)
+            Log.e(TAG, "Failed to initialize SDK", e)
             return false
         }
+    }
+
+    private val innerPrinterCallback: InnerPrinterCallback = object : InnerPrinterCallback() {
+        override fun onConnected(service: SunmiPrinterService) {
+            sunmiPrinterService = service
+            checkSunmiPrinterService(service)
+        }
+        override fun onDisconnected() {
+            sunmiPrinterService = null
+            Log.e(TAG, "Sunmi printer service is disconnected")
+        }
+    }
+
+    private fun checkSunmiPrinterService(service: SunmiPrinterService) {
+        var ret = false
+        try {
+            ret = InnerPrinterManager.getInstance().hasPrinter(service)
+        } catch (e: InnerPrinterException) {
+            e.printStackTrace()
+        }
+        sunmiPrinterService = if (ret) service else null
     }
 
     private fun printReceipt(token: String?, time: String?, nameEn: String?, nameBn: String?, companyName: String?): Boolean {
         try {
-            var printStatus: Int = mPrinter!!.getPrinterStatus()
-            if (printStatus == SdkResult.SDK_PRN_STATUS_PAPEROUT) {
-                return false
-            } else {
-                val format = PrnStrFormat()
-                format.setTextSize(50);
-                format.setAli(Layout.Alignment.ALIGN_CENTER);
-                format.setStyle(PrnTextStyle.BOLD);
-                format.setFont(PrnTextFont.CUSTOM);
-                mPrinter!!.setPrintAppendString("$companyName", format);
-                format.setTextSize(100);
-                format.setAli(Layout.Alignment.ALIGN_CENTER);
-                format.setStyle(PrnTextStyle.BOLD);
-                format.setFont(PrnTextFont.CUSTOM);
-                mPrinter!!.setPrintAppendString(token, format);
-                format.setTextSize(30);
-                format.setAli(Layout.Alignment.ALIGN_CENTER);
-                format.setStyle(PrnTextStyle.BOLD);
-                format.setFont(PrnTextFont.CUSTOM);
-                mPrinter!!.setPrintAppendString(time, format);
-                format.setTextSize(30);
-                format.setAli(Layout.Alignment.ALIGN_CENTER);
-                format.setStyle(PrnTextStyle.BOLD);
-                format.setFont(PrnTextFont.CUSTOM);
-                mPrinter!!.setPrintAppendString("$nameEn  $nameBn", format);
-                format.setTextSize(25);
-                format.setAli(Layout.Alignment.ALIGN_CENTER);
-                format.setStyle(PrnTextStyle.BOLD);
-                format.setFont(PrnTextFont.CUSTOM);
-                mPrinter!!.setPrintAppendString("Developed by Touch and Solve",format);
-                mPrinter.setPrintAppendString(" ", format);
-                mPrinter.setPrintAppendString(" ", format);
-                mPrinter!!.setPrintAppendString("Thank You",format);
-                mPrinter.setPrintAppendString(" ", format);
-                mPrinter.setPrintAppendString(" ", format);
-                cutPaper()
-                mPrinter.setPrintAppendString(" ", format);
-                mPrinter.setPrintAppendString(" ", format);
-                // Add more receipt content if needed...
+            if (sunmiPrinterService != null) {
+                sunmiPrinterService!!.setAlignment(1, null)
 
-                printStatus = mPrinter!!.setPrintStart();
-                if (printStatus == SdkResult.SDK_OK) {
-                    GlobalScope.launch {
-                        delay(4000) // This suspends the coroutine for 4 seconds
-                        cutPaper()
-                    }
-                    return true
-                } else {
-                    // Printing failed
-                    return false
-                }
+                sunmiPrinterService!!.setFontSize(50f, null)
+                sunmiPrinterService!!.printText("$companyName\n", null)
+
+                sunmiPrinterService!!.setFontSize(100f, null)
+                sunmiPrinterService!!.printText("$token\n", null)
+
+                sunmiPrinterService!!.setFontSize(30f, null)
+                sunmiPrinterService!!.printText("$time\n", null)
+
+                sunmiPrinterService!!.setFontSize(30f, null)
+                sunmiPrinterService!!.printText("$nameEn\n", null)
+
+                sunmiPrinterService!!.setFontSize(30f, null)
+                sunmiPrinterService!!.printText("$nameBn\n", null)
+
+                sunmiPrinterService!!.setFontSize(25f, null)
+                sunmiPrinterService!!.printText("Developed by Touch and Solve\n", null)
+
+                sunmiPrinterService!!.printText("\n", null)
+
+                sunmiPrinterService!!.setFontSize(25f, null)
+                sunmiPrinterService!!.printText("Thank You\n", null)
+                sunmiPrinterService!!.lineWrap(3, null)
+                cutPaper()
+
                 return true
+            } else {
+                Log.e(TAG, "Printer service is not connected")
+                return false
             }
         } catch (e: Exception) {
-            Log.e("Receipt Printing", "Failed to print receipt", e)
+            Log.e(TAG, "Failed to print receipt", e)
             return false
         }
     }
 
-    //@Suppress("UNREACHABLE_CODE")
     private fun cutPaper() {
+        if (sunmiPrinterService == null) {
+            return
+        }
         try {
-            val printStatus = mPrinter!!.getPrinterStatus()
-            if (printStatus == SdkResult.SDK_OK) {
-                mPrinter!!.openPrnCutter(1.toByte())
-            }
-        } catch (e: Exception) {
-            Log.e("Cut Paper", "Failed to cut paper", e)
+            sunmiPrinterService?.cutPaper(null)
+        } catch (e: RemoteException) {
+            Log.e(TAG, "RemoteException occurred", e)
         }
     }
 }

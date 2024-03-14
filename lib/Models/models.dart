@@ -19,15 +19,6 @@ class Company {
       logo: json['logo'],
     );
   }
-//If want to send data to API
-/*  Map<String, dynamic> toJson() {
-    return {
-      'name': name,
-      'email': email,
-      'address': address,
-      'logo': logo,
-    };
-  }*/
 }
 
 class Category {
