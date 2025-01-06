@@ -84,7 +84,7 @@ class MainActivity : FlutterActivity() {
             if (sunmiPrinterService != null) {
                 sunmiPrinterService!!.setAlignment(1, null)
 
-                sunmiPrinterService!!.setFontSize(50f, null)
+                sunmiPrinterService!!.setFontSize(40f, null)
                 sunmiPrinterService!!.printText("$companyName\n", null)
 
                 sunmiPrinterService!!.setFontSize(100f, null)
@@ -100,7 +100,7 @@ class MainActivity : FlutterActivity() {
                 sunmiPrinterService!!.printText("$nameBn\n", null)
 
                 sunmiPrinterService!!.setFontSize(25f, null)
-                sunmiPrinterService!!.printText("Developed by Touch and Solve\n", null)
+                sunmiPrinterService!!.printText("Powered by touch-queue.com\n", null)
 
                 sunmiPrinterService!!.printText("\n", null)
 

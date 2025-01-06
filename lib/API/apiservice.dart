@@ -3,8 +3,8 @@ import 'package:http/http.dart' as http;
 import '../Models/models.dart';
 
 class ApiService {
-  static const String baseUrl = 'https://www.v2.touch-queue.com/api/init';
-  final String authToken = 'b009ddc3a9b19d454f05632363478cc4dd4cefd889e640481deba4f3bacedb45';
+  static const String baseUrl = 'https://touch-queue.com/api/init';
+  final String authToken = '16253100c9ba119436b8089c338cb86cf420a51c4ed4bb0626dcbac295b2fd66';
 
   Future<Map<String, dynamic>> fetchData() async {
     final response = await http.get(Uri.parse('$baseUrl'), headers: {'Authorization': '$authToken'});
