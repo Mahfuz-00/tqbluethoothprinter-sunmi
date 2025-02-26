@@ -13,7 +13,7 @@ class SunmiPosSdk {
     }
   }
 
-  Future<bool> printReceipt(BuildContext context, String token, String time, String nameEn, String nameBn, String companyName) async {
+  Future<bool> printReceipt(BuildContext context, String token, String time, String nameEn, String nameBn, String companyName, bool config, String? docName, String? docNameBn, String? docDesignation, String? docRoom) async {
     try {
       // Invoke the method channel to send the receipt data to the printer
       await _channel..invokeMethod('printReceipt', {
@@ -22,6 +22,11 @@ class SunmiPosSdk {
         'nameEn': nameEn,
         'nameBn': nameBn,
         'companyName': companyName,
+        'config': config,
+        'docName': docName,
+        'docNameBn': docNameBn,
+        'docDesignation': docDesignation,
+        'docRoom': docRoom,
       });
       return true;
     } catch (e) {
