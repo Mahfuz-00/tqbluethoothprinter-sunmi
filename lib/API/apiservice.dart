@@ -1,11 +1,11 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../Constant/urls_and_token.dart';
 import '../Models/models.dart';
 
 class ApiService {
-  static const String baseUrl = 'https://tq-test.alhadiexpress.com.bd/api/init';
-  // final String authToken = '16253100c9ba119436b8089c338cb86cf420a51c4ed4bb0626dcbac295b2fd66';
-  final String authToken = 'f80222b0fd806104411f2c27782da05e63fe265209b2988b69770e7eaa60eacd';
+  static String baseUrl = '${URLs().Basepath}/api/init';
+  final String authToken = URLs().token;
 
   Future<Map<String, dynamic>> fetchData() async {
     final response = await http.get(Uri.parse('$baseUrl'), headers: {'Authorization': '$authToken'});
@@ -27,7 +27,7 @@ class ApiService {
     }
   }
 
-  Future<List<Category>> fetchCategories() async {
+  Future<List<dynamic>> fetchCategories() async {
     final response = await http.get(Uri.parse('$baseUrl'), headers: {'Authorization': '$authToken'});
     print(response.statusCode);
     print(response.body);
@@ -35,7 +35,7 @@ class ApiService {
       print('Fetched categories data: ${response.statusCode}');
       final Map<String, dynamic> dataMap = json.decode(response.body);
       final List<dynamic> categoriesData = dataMap['categories']  ?? [];
-      return categoriesData.map((json) => Category.fromJson(json)).toList();
+      return categoriesData;
     } else {
       print('Failed to fetch categories data: ${response.statusCode}');
       throw Exception('Failed to fetch categories data');
