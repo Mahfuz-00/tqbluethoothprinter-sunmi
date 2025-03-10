@@ -24,6 +24,8 @@ class _UIScreenState extends State<UIScreen> {
   bool isFullScreen = false;
   int isLoadingIndex = -1;
   final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+  bool isback = false;
+  Map<String, dynamic> finalOption = {};
 
   @override
   void initState() {
@@ -45,6 +47,7 @@ class _UIScreenState extends State<UIScreen> {
 
   List<Map<String, dynamic>> selectionStack = [];
   List<Map<String, dynamic>> selectedItems = [];
+  Map<String, dynamic> CompleteJson = {};
 
   void addToJson(int id, String name, String key, bool isFirst) {
     Map<String, dynamic> newJson = {};
@@ -55,6 +58,14 @@ class _UIScreenState extends State<UIScreen> {
       newJson['category_id'] = id;
       newJson['category_name'] = name;
       newJson['sub_categories'] = [];
+
+      print('newJson with $key: ${jsonEncode(newJson)}');
+
+      CompleteJson['id'] = id;
+      // CompleteJson['category_name'] = name;
+      CompleteJson['sub_categories'] = [];
+
+      print('CompleteJson with $key: ${jsonEncode(CompleteJson)}');
     } else {
       // Initialize the list to hold subcategories or children
       List<Map<String, dynamic>> itemsList = [];
@@ -62,30 +73,33 @@ class _UIScreenState extends State<UIScreen> {
       // Check if the selectedItem contains 'sub_categories' or 'children'
       // Iterate over the subcategories or children and add their id and name
       itemsList.add({
-        'id': id,
-        'name_en': name,
+        'sub_category_id': id,
+        'name': name,
       });
 
       // Add the list to newJson under the appropriate key
       if (itemsList.isNotEmpty) {
         newJson[key] = itemsList;
         print('newJson with $key: ${jsonEncode(newJson)}');
+
+        CompleteJson['sub_categories'].addAll(itemsList);
+        print('CompleteJson with $key: ${jsonEncode(CompleteJson)}');
       }
     }
   }
 
   String layer = 'categories';
 
-  List<dynamic> getCurrentOptions(Map<String, dynamic> data) {
+  /* List<dynamic> getCurrentOptions(Map<String, dynamic> data) {
     if (selectionStack.isEmpty) {
       print('Called: $data');
       for (var category in data['categories']) {
         print('Category Name: ${category['name_en']}');
       }
       print(selectionStack);
- /*     setState(() {
+ */ /*     setState(() {
         layer = 'categories';
-      });*/
+      });*/ /*
       return data['categories'];
     } else {
       Map<String, dynamic> current = selectionStack.last;
@@ -105,7 +119,7 @@ class _UIScreenState extends State<UIScreen> {
         } else {
           return [];
         }
-   /*     return data['categories']['sub_categories'];*/
+   */ /*     return data['categories']['sub_categories'];*/ /*
       } else if (layer == 'children') {
         // Find the subcategory with the matching id
         var subcategory = data['sub_categories'].firstWhere(
@@ -123,34 +137,111 @@ class _UIScreenState extends State<UIScreen> {
         return [];
       }
     }
+  }*/
+  Map<String, dynamic> getCurrentOptions(Map<String, dynamic> data) {
+    // If no selection has been made, return the top-level categories.
+    if (selectionStack.isEmpty) {
+      print('Layer: categories');
+      layer = 'categories';
+      return {
+        'layer': 'categories',
+        'options': data['categories'] ?? [],
+      };
+    }
+
+    // Start traversal from the top-level categories.
+    List<dynamic> currentList = data['categories'] ?? [];
+    Map<String, dynamic> currentItem = {};
+
+    // Traverse the hierarchy using the selectionStack.
+    for (var selection in selectionStack) {
+      currentItem = currentList.firstWhere(
+        (item) => item['id'] == selection['id'],
+        orElse: () => null,
+      );
+      if (currentItem == null) {
+        // If the current selection cannot be found, return an empty result.
+        return {
+          'layer': 'unknown',
+          'options': [],
+        };
+      }
+      // Determine the next level options.
+      if (currentItem.containsKey('sub_categories') &&
+          (currentItem['sub_categories'] as List).isNotEmpty) {
+        isback = true;
+        currentList = currentItem['sub_categories'];
+      } else if (currentItem.containsKey('children') &&
+          (currentItem['children'] as List).isNotEmpty) {
+        currentList = currentItem['children'];
+      } else {
+        // No further options available.
+        currentList = [];
+        break;
+      }
+    }
+
+    // Identify the current layer.
+    // String layer;
+    if (currentItem.containsKey('sub_categories') &&
+        (currentItem['sub_categories'] as List).isNotEmpty) {
+      layer = 'sub_categories';
+    } else if (currentItem.containsKey('children') &&
+        (currentItem['children'] as List).isNotEmpty) {
+      layer = 'children';
+    } else {
+      layer = '';
+    }
+
+    print('Layer: $layer');
+    print('Current item: $currentItem');
+    finalOption = currentItem;
+    print('Options: $currentList');
+
+    return {
+      'layer': layer,
+      'options': currentList,
+    };
   }
 
   void handleSelection(Map<String, dynamic> selectedItem) {
     setState(() {
-      if(layer == 'categories'){
+      if (layer == 'categories') {
         print(selectionStack);
-        selectionStack.add({'id': selectedItem['id'], 'name_en': selectedItem['name_en']});
+        selectionStack.add(
+            {'id': selectedItem['id'], 'name_en': selectedItem['name_en']});
         // print('selectedItems: ${jsonEncode(selectedItems)}');
-        addToJson(selectedItem['id'], selectedItem['name_en'], 'categories', true);
+        addToJson(
+            selectedItem['id'], selectedItem['name_en'], 'categories', true);
         setState(() {
           layer = 'sub_categories';
         });
       } else if (layer == 'sub_categories') {
-        selectionStack.add({'id': selectedItem['id'], 'name_en': selectedItem['name']});
-        addToJson(selectedItem['id'], selectedItem['name'], 'sub_categories', false);
+        selectionStack
+            .add({'id': selectedItem['id'], 'name_en': selectedItem['name']});
+        addToJson(
+            selectedItem['id'], selectedItem['name'], 'sub_categories', false);
         setState(() {
           layer = 'children';
         });
       } else if (layer == 'children') {
-        selectionStack.add({'id': selectedItem['id'], 'name_en': selectedItem['name']});
+        selectionStack
+            .add({'id': selectedItem['id'], 'name_en': selectedItem['name']});
         addToJson(selectedItem['id'], selectedItem['name'], 'children', false);
       } else {
-        if (selectedItem['type'] == 'data') {
+        print('Final selection: ${jsonEncode(finalOption)}');
+        print('Type? :${finalOption['type']}');
+        if (finalOption['type'] == 'data') {
           // Implement your printing logic here
-          print('Printing: ${selectedItem['name_en']}');
+          print('Printing: ${finalOption['name_en']}');
+
+
+          // Call the function without using await here
+          fetchDataAndPrintReceipt(CompleteJson);
+
         } else {
           // Navigate to detail page
-          /*Navigator.push(
+          /*    Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => DetailPage(item: selectedItem),
@@ -161,10 +252,91 @@ class _UIScreenState extends State<UIScreen> {
     });
   }
 
-  void handleBack() {
+  Future<void> fetchDataAndPrintReceipt(Map<String, dynamic> completeJson) async {
+    final String authToken = URLs().token;
+    final url = '${URLs().Basepath}/api/create-token';
+
+    try {
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': '$authToken',
+        },
+        body: json.encode(completeJson),
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        print(responseData);
+
+        // Implement your printing logic here
+        // Extract required values and print
+   /*     final data = responseData['data'];
+        final Token = data['token'];
+        final Time = data['time'];
+        print('Token: $Token, Time and Date: $Time');
+
+        // Call the SDK for printing
+        final SunmiPosSdk sunmiPosSdk = SunmiPosSdk();
+        await sunmiPosSdk.printReceipt(
+          context,
+          '$Token',
+          '$Time',
+          '$nameEn',
+          '$nameBn',
+          '$companyName',
+          shouldDialog,
+          '',
+          '',
+          '',
+          '',
+        );*/
+
+        // Show dialog with token details
+     /*   showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext context) {
+            return Center(
+              child: buildAlertDialog(Token, Time, '$nameEn ($nameBn)'),
+            );
+          },
+        );*/
+      }
+    } catch (error) {
+      print('Error occurred: $error');
+    }
+  }
+
+
+/*  void handleBack() {
     setState(() {
       if (selectionStack.isNotEmpty) {
         selectionStack.removeLast();
+      }
+    });
+  }*/
+
+  void handleBack() {
+    setState(() {
+      if (selectionStack.isNotEmpty) {
+        // Remove the last selection from the stack
+        selectionStack.removeLast();
+
+        print('Complete Json : $CompleteJson');
+
+        // If the selectionStack is now empty, reset the CompleteJson
+        if (selectionStack.isEmpty) {
+          setState(() {
+            CompleteJson.clear();
+            isback = false;
+          });
+        } else  if (CompleteJson['sub_categories'].isNotEmpty) {
+          CompleteJson['sub_categories'].removeLast();
+        }
+
+        print('Complete Json === $CompleteJson ===');
       }
     });
   }
@@ -274,18 +446,16 @@ class _UIScreenState extends State<UIScreen> {
           print('Complete JSON: ${jsonEncode(newJson)}');
         } else {
           // Navigate to detail page
-          *//*      Navigator.push(
+          */ /*      Navigator.push(
             context,
             MaterialPageRoute(
               builder: (context) => DetailPage(item: selectedItem),
             ),
-          );*//*
+          );*/ /*
         }
       }
     });
   }*/
-
-
 
 /*  void handleSelection(Map<String, dynamic> selectedItem) {
     Map<String, dynamic> newJson = {};
@@ -310,12 +480,12 @@ class _UIScreenState extends State<UIScreen> {
           print('Printing: ${selectedItem['name']}');
         } else {
           // Navigate to detail page
-     *//*           Navigator.push(
+     */ /*           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (context) => DetailPage(item: selectedItem),
             ),
-          );*//*
+          );*/ /*
         }
       }
     });
@@ -449,42 +619,98 @@ class _UIScreenState extends State<UIScreen> {
 
                         final data = snapshot.data!;
                         final currentOptions = getCurrentOptions(data);
+                        print('CO :${currentOptions['options']}');
 
                         // print('Data: ${jsonEncode(currentOptions)}');
 
-                        return ListView.builder(
-                          padding: EdgeInsets.symmetric(horizontal: screenWidth*0.1, vertical: 3),
-                          shrinkWrap: true,
-                          physics: NeverScrollableScrollPhysics(),
-                          itemCount: currentOptions.length,
-                          itemBuilder: (context, index) {
-                            final option = currentOptions[index];
-                            return Column(
-                              children: [
-                                ElevatedButton(
+                        return Column(
+                          children: [
+                            ListView.builder(
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: screenWidth * 0.1, vertical: 3),
+                              shrinkWrap: true,
+                              physics: NeverScrollableScrollPhysics(),
+                              itemCount: currentOptions['options'].length,
+                              itemBuilder: (context, index) {
+                                final option = currentOptions['options'][index];
+                                return Column(
+                                  children: [
+                                    ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Theme.of(context)
+                                            .colorScheme
+                                            .primary,
+                                        fixedSize: Size(screenWidth * 0.7,
+                                            screenHeight * 0.12),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(5),
+                                        ),
+                                      ),
+                                      onPressed: () => handleSelection(option),
+                                      child: FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        child: Text(
+                                          '${option['name_en'] ?? option['name']} (${option['name_bn']})',
+                                          style: TextStyle(
+                                              fontSize: 25,
+                                              color: Colors.white),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(
+                                      height: 10,
+                                    )
+                                  ],
+                                );
+                              },
+                            ),
+                            SizedBox(
+                              height: 10,
+                            ),
+                            if (isback) ...[
+                              Center(
+                                child: ElevatedButton(
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: Theme.of(context).colorScheme.primary,
-                                    fixedSize: Size(screenWidth * 0.7, screenHeight * 0.12),
+                                    backgroundColor: Theme.of(context)
+                                        .colorScheme
+                                        .primary,
+                                    fixedSize: Size(screenWidth * 0.25,
+                                        screenHeight * 0.12),
                                     shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(5),
+                                      borderRadius:
+                                      BorderRadius.circular(5),
                                     ),
                                   ),
-                                  onPressed: () => handleSelection(option),
+                                  onPressed: () => handleBack(),
                                   child: FittedBox(
                                     fit: BoxFit.scaleDown,
-                                    child: Text(
-                                      '${option['name_en'] ?? option['name']}\n${option['name_bn']}',
-                                      style: TextStyle(
-                                          fontSize: 25,
-                                          color: Colors.white),
-                                      textAlign: TextAlign.center,
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Icon(
+                                          Icons.arrow_back_ios_new_outlined,
+                                          color: Colors.white,
+                                        ),
+                                        SizedBox(width: 10),
+                                        Text(
+                                          'Back',
+                                          style: TextStyle(
+                                              fontSize: 25,
+                                              color: Colors.white),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ),
-                                SizedBox(height: 10,)
-                              ],
-                            );
-                          },
+                              ),
+                            ],
+                            SizedBox(
+                              height: 20,
+                            ),
+                          ],
                         );
                       },
                     ),
