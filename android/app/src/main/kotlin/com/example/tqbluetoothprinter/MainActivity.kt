@@ -36,27 +36,19 @@ class MainActivity : FlutterActivity() {
                 }
 
                 "printReceipt" -> {
-                    val token = call.argument<String>("token")
+                  /*  val token = call.argument<String>("token")
                     val time = call.argument<String>("time")
-                    val nameEn = call.argument<String>("nameEn")
-                    val nameBn = call.argument<String>("nameBn")
-                    val companyName = call.argument<String>("companyName")
-                    val config = call.argument<String>("config")
-                    val DocEn = call.argument<String>("docName")
-                    val DocBn = call.argument<String>("docNameBn")
-                    val DocDesignation = call.argument<String>("docDesignation")
-                    val DocRoom = call.argument<String>("docRoom")
+                    val Category = call.argument<String>("Category")
+                    val additionalData = call.argument<List>("additionalData")*/
+                    val token: String? = call.argument("token")
+                    val time: String? = call.argument("time")
+                    val category: String? = call.argument("Category")
+                    val additionalData: List<Any>? = call.argument("additionalData")
                     val success = printReceipt(
                         token,
                         time,
-                        nameEn,
-                        nameBn,
-                        companyName,
-                        config,
-                        DocEn,
-                        DocBn,
-                        DocDesignation,
-                        DocRoom
+                        category,
+                        additionalData,
                     )
                     result.success(success)
                 }
@@ -105,32 +97,12 @@ class MainActivity : FlutterActivity() {
     private fun printReceipt(
         token: String?,
         time: String?,
-        nameEn: String?,
-        nameBn: String?,
-        companyName: String?,
-        config: String?,
-        DocEn: String?,
-        DocBn: String?,
-        DocDesignation: String?,
-        DocRoom: String?
+        category: String?,
+        additionalData: List<Any>?
     ): Boolean {
         try {
             if (sunmiPrinterService != null) {
                 sunmiPrinterService!!.setAlignment(1, null)
-
-                if (config == "false") {
-                    sunmiPrinterService!!.setFontSize(40f, null)
-                    sunmiPrinterService!!.printText("$companyName\n", null)
-                } else if (config == "true") {
-                    sunmiPrinterService!!.setFontSize(30f, null)
-                    sunmiPrinterService!!.printText("$DocEn ($DocBn)\n", null)
-
-                    sunmiPrinterService!!.setFontSize(30f, null)
-                    sunmiPrinterService!!.printText("$DocDesignation\n", null)
-
-                    sunmiPrinterService!!.setFontSize(30f, null)
-                    sunmiPrinterService!!.printText("Room No (রুম নং): $DocRoom\n", null)
-                }
 
                 sunmiPrinterService!!.setFontSize(100f, null)
                 sunmiPrinterService!!.printText("$token\n", null)
@@ -139,10 +111,12 @@ class MainActivity : FlutterActivity() {
                 sunmiPrinterService!!.printText("$time\n", null)
 
                 sunmiPrinterService!!.setFontSize(30f, null)
-                sunmiPrinterService!!.printText("$nameEn\n", null)
+                sunmiPrinterService!!.printText("$category\n", null)
 
                 sunmiPrinterService!!.setFontSize(30f, null)
-                sunmiPrinterService!!.printText("$nameBn\n", null)
+                additionalData?.forEach { data ->
+                    sunmiPrinterService!!.printText("$data\n", null)
+                }
 
                 sunmiPrinterService!!.setFontSize(25f, null)
                 sunmiPrinterService!!.printText("Powered by touch-queue.com\n", null)

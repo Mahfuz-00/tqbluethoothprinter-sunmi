@@ -25,11 +25,19 @@ class _UIScreenState extends State<UIScreen> {
   int isLoadingIndex = -1;
   final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
   bool isback = false;
-  Map<String, dynamic> finalOption = {};
+  String finalOption = '';
+  late Future<Map<String, dynamic>> _dataFuture;
+  final TextEditingController nameController = TextEditingController();
+  final TextEditingController phoneController = TextEditingController();
+  String errorMessage = '';
+  bool isLoading = false;
+  final _formKey = GlobalKey<FormState>();
+  ValueNotifier<String> screenchange = ValueNotifier<String>('');
 
   @override
   void initState() {
     super.initState();
+    _dataFuture = _apiService.fetchData();
     initSdk();
   }
 
@@ -57,7 +65,7 @@ class _UIScreenState extends State<UIScreen> {
       // Add category information
       newJson['category_id'] = id;
       newJson['category_name'] = name;
-      newJson['sub_categories'] = [];
+      newJson['sub_categories'] = {};
 
       print('newJson with $key: ${jsonEncode(newJson)}');
 
@@ -195,7 +203,20 @@ class _UIScreenState extends State<UIScreen> {
 
     print('Layer: $layer');
     print('Current item: $currentItem');
-    finalOption = currentItem;
+    print('Current item Childern: ${currentItem['children']}');
+    print('Layer right now : ${layer}');
+    if (layer == 'sub_categories' && currentItem['sub_categories'] == null) {
+      finalOption = currentItem['type'];
+      print('Current Option: $finalOption');
+      handleFinalOption(finalOption);
+    }
+    if (layer == 'children' ||
+        layer == '' ||
+        layer == null && currentItem['children'] == null) {
+      finalOption = currentItem['type'];
+      print('Current Option: $finalOption');
+      handleFinalOption(finalOption);
+    }
     print('Options: $currentList');
 
     return {
@@ -228,12 +249,11 @@ class _UIScreenState extends State<UIScreen> {
         selectionStack
             .add({'id': selectedItem['id'], 'name_en': selectedItem['name']});
         addToJson(selectedItem['id'], selectedItem['name'], 'children', false);
-      } else {
-        print('Final selection: ${jsonEncode(finalOption)}');
-        print('Type? :${finalOption['type']}');
-        if (finalOption['type'] == 'data') {
+      } /*else {
+        print('Type? :${finalOption}');
+        if (finalOption == 'data') {
           // Implement your printing logic here
-          print('Printing: ${finalOption['name_en']}');
+          print('Printing: ${finalOption}');
 
 
           // Call the function without using await here
@@ -241,20 +261,62 @@ class _UIScreenState extends State<UIScreen> {
 
         } else {
           // Navigate to detail page
-          /*    Navigator.push(
+          */ /*    Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => DetailPage(item: selectedItem),
           ),
-        );*/
+        );*/ /*
         }
-      }
+      }*/
     });
   }
 
-  Future<void> fetchDataAndPrintReceipt(Map<String, dynamic> completeJson) async {
+  void handleFinalOption(String FinalOption) {
+    print('Type? : $FinalOption');
+    if (FinalOption == 'data') {
+      screenchange.value = 'data';
+      // Implement your printing logic here
+      print('Printing: $FinalOption');
+
+      // Call the function without using await here
+      fetchDataAndPrintReceipt(CompleteJson);
+    } else if (FinalOption == 'input') {
+      screenchange.value = 'input';
+      /*   setState(() {
+        finalOption == 'input';
+      });*/
+      /*    final String authToken = URLs().token;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        // Navigate to detail page
+        Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => EnterDetailsPage(
+                authToken: authToken,
+                jsonBody: CompleteJson,
+              ),
+            )).then((_) {
+          // This callback is invoked after the EnterDetailsPage is popped
+          if (mounted) {
+            setState(() {
+              CompleteJson.clear();
+              isback = false;
+              selectionStack.clear();
+              layer = 'categories';
+            });
+          }
+        });
+      });*/
+    }
+  }
+
+  Future<void> fetchDataAndPrintReceipt(
+      Map<String, dynamic> completeJson) async {
     final String authToken = URLs().token;
     final url = '${URLs().Basepath}/api/create-token';
+
+    print(completeJson);
 
     try {
       final response = await http.post(
@@ -268,47 +330,63 @@ class _UIScreenState extends State<UIScreen> {
 
       if (response.statusCode == 200) {
         final responseData = json.decode(response.body);
-        print(responseData);
+        print('Response data: ${responseData}');
+        final data = responseData['data'];
+        final token = data['token'];
+        final time = data['time'];
+        final categoryName = data['category'];
+        final additionalData = data['additionalData'];
+        print(
+            'Token: $token, Time and Date: $time, Category: $categoryName, Additional Data: $additionalData');
 
-        // Implement your printing logic here
-        // Extract required values and print
-   /*     final data = responseData['data'];
-        final Token = data['token'];
-        final Time = data['time'];
-        print('Token: $Token, Time and Date: $Time');
-
-        // Call the SDK for printing
+        // Call the printReceipt function from your SDK
         final SunmiPosSdk sunmiPosSdk = SunmiPosSdk();
-        await sunmiPosSdk.printReceipt(
-          context,
-          '$Token',
-          '$Time',
-          '$nameEn',
-          '$nameBn',
-          '$companyName',
-          shouldDialog,
-          '',
-          '',
-          '',
-          '',
-        );*/
+        bool printSuccess = await sunmiPosSdk.printReceipt(
+            context,
+            '$token',
+            '$time',
+            // nameController.text,
+            '$categoryName',
+            additionalData);
 
-        // Show dialog with token details
-     /*   showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (BuildContext context) {
-            return Center(
-              child: buildAlertDialog(Token, Time, '$nameEn ($nameBn)'),
-            );
-          },
-        );*/
+        // After printing is complete, pop the page back to the previous screen.
+        if (printSuccess) {
+          // Show dialog with token details
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (BuildContext context) {
+              return Center(
+                child: buildAlertDialog(token, time, '$categoryName'),
+              );
+            },
+          );
+
+          setState(() {
+            CompleteJson.clear();
+            isback = false;
+            selectionStack.clear();
+            layer = 'categories';
+            screenchange.value = '';
+          });
+          // Navigator.of(context).pop();
+        } else {
+          // Show error dialog
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (BuildContext context) {
+              return Center(
+                child: Text('Error printing receipt'),
+              );
+            },
+          );
+        }
       }
     } catch (error) {
       print('Error occurred: $error');
     }
   }
-
 
 /*  void handleBack() {
     setState(() {
@@ -332,13 +410,117 @@ class _UIScreenState extends State<UIScreen> {
             CompleteJson.clear();
             isback = false;
           });
-        } else  if (CompleteJson['sub_categories'].isNotEmpty) {
+        } else if (CompleteJson['sub_categories'].isNotEmpty) {
           CompleteJson['sub_categories'].removeLast();
         }
 
         print('Complete Json === $CompleteJson ===');
       }
     });
+  }
+
+  Future<void> _handlePrint() async {
+    // Dismiss the keyboard
+    // FocusScope.of(context).unfocus();
+
+    // Validate that both fields are filled
+    if (nameController.text.isEmpty || phoneController.text.isEmpty) {
+      setState(() {
+        errorMessage = 'Please fill in all fields (সব তথ্য পূরণ করুন)';
+      });
+      return;
+    } else {
+      setState(() {
+        errorMessage = '';
+      });
+    }
+
+    setState(() {
+      isLoading = true;
+    });
+
+    CompleteJson.addAll({
+      'name': nameController.text,
+      'mobile_number': phoneController.text,
+    });
+
+    print('Input Json: ${CompleteJson}');
+
+    final String authToken = URLs().token;
+    // Build the API URL (assuming your URLs class provides this)
+    final url = '${URLs().Basepath}/api/create-token';
+
+    try {
+      // Make the POST API call using the entered values
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': authToken,
+        },
+        body: json.encode(CompleteJson),
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        print('Response data: ${responseData}');
+        final data = responseData['data'];
+        final token = data['token'];
+        final time = data['time'];
+        final categoryName = data['category'];
+        final additionalData = data['additionalData'];
+        print(
+            'Token: $token, Time and Date: $time, Category: $categoryName, Additional Data: $additionalData');
+
+        // Call the printReceipt function from your SDK
+        final SunmiPosSdk sunmiPosSdk = SunmiPosSdk();
+        bool printSuccess = await sunmiPosSdk.printReceipt(
+            context,
+            '$token',
+            '$time',
+            // nameController.text,
+            '$categoryName',
+            additionalData);
+
+        // After printing is complete, pop the page back to the previous screen.
+        if (printSuccess) {
+          setState(() {
+            CompleteJson.clear();
+            isback = false;
+            selectionStack.clear();
+            layer = 'categories';
+            screenchange.value = '';
+          });
+        } else {
+          setState(() {
+            errorMessage = 'Print failed. Please try again.';
+          });
+        }
+      } else {
+        setState(() {
+          errorMessage = 'Failed to fetch data: ${response.statusCode}';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        errorMessage = 'An error occurred: $e';
+      });
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  String? validateBangladeshiPhoneNumber(String? value) {
+    // Regular expression to match Bangladeshi phone numbers
+    final RegExp regExp = RegExp(r'^01[0-9]{9}$');
+    if (value == null || value.isEmpty) {
+      return 'Please enter a mobile number.';
+    } else if (!regExp.hasMatch(value)) {
+      return 'Please enter a valid Bangladeshi mobile number.';
+    }
+    return null;
   }
 
 /*  List<dynamic> getCurrentOptions(Map<String, dynamic> data) {
@@ -559,346 +741,452 @@ class _UIScreenState extends State<UIScreen> {
                 ),
               ),
             ),
-            body: SafeArea(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    SizedBox(
-                      height: screenHeight * 0.05,
-                    ),
-                    Container(
-                      alignment: Alignment.center,
+            body: ValueListenableBuilder<String>(
+              valueListenable: screenchange,
+              builder: (context, value, child) {
+                if (value != 'input') {
+                  return SafeArea(
+                    child: SingleChildScrollView(
                       child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(
-                              'WELCOME',
-                              style: TextStyle(
-                                color: Theme.of(context).colorScheme.primary,
-                                fontSize: 30,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
                           SizedBox(
-                            height: screenHeight * 0.025,
+                            height: screenHeight * 0.05,
                           ),
-                          const FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(
-                              'Please Select an option from below',
-                              style: TextStyle(
-                                color: Colors.black,
-                                fontSize: 30,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(
-                      height: screenHeight * 0.05,
-                    ),
-                    FutureBuilder<Map<String, dynamic>>(
-                      future: _apiService.fetchData(),
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const Center(
-                              child: CircularProgressIndicator());
-                        }
-                        if (snapshot.hasError || !snapshot.hasData) {
-                          return Center(
-                              child: Text(
-                                  'Error: ${snapshot.error ?? "No data"}'));
-                        }
-
-                        final data = snapshot.data!;
-                        final currentOptions = getCurrentOptions(data);
-                        print('CO :${currentOptions['options']}');
-
-                        // print('Data: ${jsonEncode(currentOptions)}');
-
-                        return Column(
-                          children: [
-                            ListView.builder(
-                              padding: EdgeInsets.symmetric(
-                                  horizontal: screenWidth * 0.1, vertical: 3),
-                              shrinkWrap: true,
-                              physics: NeverScrollableScrollPhysics(),
-                              itemCount: currentOptions['options'].length,
-                              itemBuilder: (context, index) {
-                                final option = currentOptions['options'][index];
-                                return Column(
-                                  children: [
-                                    ElevatedButton(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Theme.of(context)
-                                            .colorScheme
-                                            .primary,
-                                        fixedSize: Size(screenWidth * 0.7,
-                                            screenHeight * 0.12),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(5),
-                                        ),
-                                      ),
-                                      onPressed: () => handleSelection(option),
-                                      child: FittedBox(
-                                        fit: BoxFit.scaleDown,
-                                        child: Text(
-                                          '${option['name_en'] ?? option['name']} (${option['name_bn']})',
-                                          style: TextStyle(
-                                              fontSize: 25,
-                                              color: Colors.white),
-                                          textAlign: TextAlign.center,
-                                        ),
-                                      ),
-                                    ),
-                                    SizedBox(
-                                      height: 10,
-                                    )
-                                  ],
-                                );
-                              },
-                            ),
-                            SizedBox(
-                              height: 10,
-                            ),
-                            if (isback) ...[
-                              Center(
-                                child: ElevatedButton(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Theme.of(context)
-                                        .colorScheme
-                                        .primary,
-                                    fixedSize: Size(screenWidth * 0.25,
-                                        screenHeight * 0.12),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius:
-                                      BorderRadius.circular(5),
-                                    ),
-                                  ),
-                                  onPressed: () => handleBack(),
-                                  child: FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Icon(
-                                          Icons.arrow_back_ios_new_outlined,
-                                          color: Colors.white,
-                                        ),
-                                        SizedBox(width: 10),
-                                        Text(
-                                          'Back',
-                                          style: TextStyle(
-                                              fontSize: 25,
-                                              color: Colors.white),
-                                          textAlign: TextAlign.center,
-                                        ),
-                                      ],
+                          Container(
+                            alignment: Alignment.center,
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    'WELCOME',
+                                    style: TextStyle(
+                                      color:
+                                          Theme.of(context).colorScheme.primary,
+                                      fontSize: 30,
+                                      fontWeight: FontWeight.bold,
                                     ),
                                   ),
                                 ),
-                              ),
-                            ],
-                            SizedBox(
-                              height: 20,
+                                SizedBox(
+                                  height: screenHeight * 0.025,
+                                ),
+                                const FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    'Please Select an option from below',
+                                    style: TextStyle(
+                                      color: Colors.black,
+                                      fontSize: 30,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
-                        );
-                      },
-                    ),
-                    /*FutureBuilder<Map<String, dynamic>>(
-                    future: _apiService.fetchData(),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-                      if (snapshot.hasError || !snapshot.hasData) {
-                        return Center(
-                            child: Text('Error: ${snapshot.error ?? "No data"}'));
-                      }
-                      final String companyName =
-                          snapshot.data!['company']?.name ?? '';
-                      final List<dynamic> categoriesData =
-                          snapshot.data!['categories'] ?? [];
-                      final bool shouldDialog =
-                          snapshot.data!['config']['collect_data'] ?? '';
-                      print(shouldDialog);
+                          ),
+                          SizedBox(
+                            height: screenHeight * 0.05,
+                          ),
+                          FutureBuilder<Map<String, dynamic>>(
+                            future: _dataFuture,
+                            builder: (context, snapshot) {
+                              if (snapshot.connectionState ==
+                                  ConnectionState.waiting) {
+                                return const Center(
+                                    child: CircularProgressIndicator());
+                              }
+                              if (snapshot.hasError || !snapshot.hasData) {
+                                return Center(
+                                    child: Text(
+                                        'Error: ${snapshot.error ?? "No data"}'));
+                              }
 
-                      return LayoutBuilder(
-                        builder:
-                            (BuildContext context, BoxConstraints constraints) {
-                          return Column(
-                            children: categoriesData.map<Widget>((category) {
-                              final String nameEn = category.nameEn;
-                              final String nameBn = category.nameBn;
-                              final String DocBn = category.DocBn;
-                              final String DocEn = category.DocEn;
-                              final String DocDesignation = category.DocDesignation;
-                              final String DocRoom = category.DocRoom;
+                              final data = snapshot.data!;
+                              final currentOptions = getCurrentOptions(data);
+                              print('CO :${currentOptions['options']}');
 
-                              return StatefulBuilder(
-                                builder: (context, setState) {
-                                  return Column(
-                                    children: [
-                                      ElevatedButton(
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor:
-                                          Theme.of(context).colorScheme.primary,
-                                          fixedSize: Size(screenWidth * 0.8,
-                                              screenHeight * 0.1),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(5),
-                                          ),
-                                        ),
-                                        onPressed: () async {
-                                          setState(() {
-                                            isLoadingIndex =
-                                                categoriesData.indexOf(category);
-                                            showLoadingOverlay(context);
-                                          });
-                                          final int categoryID = category.id;
-                                          // final String authToken = '16253100c9ba119436b8089c338cb86cf420a51c4ed4bb0626dcbac295b2fd66';
-                                          final String authToken = URLs().token;
-                                          if (shouldDialog == false) {
-                                            final url =
-                                                '${URLs().Basepath}/api/create-token';
-                                            final response = await http
-                                                .post(Uri.parse(url), headers: {
-                                              'Content-Type': 'application/json',
-                                              'Authorization': '$authToken',
-                                            }, body: {
-                                              'id': categoryID,
-                                            });
-                                            if (response.statusCode == 200) {
-                                              final responseData =
-                                              json.decode(response.body);
-                                              print(responseData);
-                                              final data = responseData['data'];
-                                              final Token = data['token'];
-                                              final Time = data['time'];
-                                              print(
-                                                  'Token: $Token, Time and Date: $Time');
+                              if (currentOptions['options'] == null) {
+                                setState(() {
+                                  isback = false;
+                                });
+                                return Container(
+                                  color: Colors.white,
+                                  child: CircularProgressIndicator(),
+                                );
+                              }
 
-                                              final SunmiPosSdk sunmiPosSdk =
-                                              SunmiPosSdk();
-                                              await sunmiPosSdk.printReceipt(
-                                                  context,
-                                                  '$Token',
-                                                  '$Time',
-                                                  '$nameEn',
-                                                  '$nameBn',
-                                                  '$companyName',
-                                                  shouldDialog,
-                                                  '',
-                                                  '',
-                                                  '',
-                                                  '');
+                              // print('Data: ${jsonEncode(currentOptions)}');
 
-                                              showDialog(
-                                                context: context,
-                                                barrierDismissible: false,
-                                                builder: (BuildContext context) {
-                                                  return Center(
-                                                    child: buildAlertDialog(Token,
-                                                        Time, '$nameEn ($nameBn)'),
-                                                  );
-                                                },
-                                              );
-
-                                              setState(() {
-                                                isLoadingIndex = -1;
-                                              });
-                                            } else {
-                                              print(
-                                                  'Failed to fetch data: ${response.statusCode}');
-                                            }
-                                          }
-                                          else if (shouldDialog == true) {
-                                            */ /* closeLoadingOverlay(context);*/ /*
-                                            Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder: (context) =>
-                                                      EnterDetailsPage(
-                                                        authToken: authToken,
-                                                        categoryID: categoryID,
-                                                        nameBn: nameBn,
-                                                        nameEn: nameEn,
-                                                        shouldDialog: shouldDialog,
-                                                        DocEn: DocEn,
-                                                        DocBn: DocBn,
-                                                        DocDesignation: DocDesignation,
-                                                        DocRoom: DocRoom,
-                                                      ),
-                                                ));
-                                          }
-                                        },
-                                        child: shouldDialog
-                                            ? FittedBox(
-                                          fit: BoxFit.scaleDown,
-                                          child: Column(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              SizedBox(
-                                                height: 5,
+                              return Column(
+                                children: [
+                                  ListView.builder(
+                                    padding: EdgeInsets.symmetric(
+                                        horizontal: screenWidth * 0.1,
+                                        vertical: 3),
+                                    shrinkWrap: true,
+                                    physics: NeverScrollableScrollPhysics(),
+                                    itemCount: currentOptions['options'].length,
+                                    itemBuilder: (context, index) {
+                                      final option =
+                                          currentOptions['options'][index];
+                                      return Column(
+                                        children: [
+                                          ElevatedButton(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: Theme.of(context)
+                                                  .colorScheme
+                                                  .primary,
+                                              fixedSize: Size(screenWidth * 0.7,
+                                                  screenHeight * 0.12),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(5),
                                               ),
-                                              Text(
-                                                '$DocEn ($DocBn), $DocDesignation, Room No (রুম নং): $DocRoom',
+                                            ),
+                                            onPressed: () =>
+                                                handleSelection(option),
+                                            child: FittedBox(
+                                              fit: BoxFit.scaleDown,
+                                              child: Text(
+                                                '${option['name_en'] ?? option['name']} (${option['name_bn']})',
                                                 style: TextStyle(
                                                     fontSize: 25,
                                                     color: Colors.white),
+                                                textAlign: TextAlign.center,
                                               ),
-                                              SizedBox(
-                                                height: 5,
+                                            ),
+                                          ),
+                                          SizedBox(
+                                            height: 10,
+                                          )
+                                        ],
+                                      );
+                                    },
+                                  ),
+                                  SizedBox(
+                                    height: 10,
+                                  ),
+                                  if (isback) ...[
+                                    Center(
+                                      child: ElevatedButton(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Theme.of(context)
+                                              .colorScheme
+                                              .primary,
+                                          fixedSize: Size(screenWidth * 0.25,
+                                              screenHeight * 0.12),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(5),
+                                          ),
+                                        ),
+                                        onPressed: () => handleBack(),
+                                        child: FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Icon(
+                                                Icons
+                                                    .arrow_back_ios_new_outlined,
+                                                color: Colors.white,
                                               ),
+                                              SizedBox(width: 10),
                                               Text(
-                                                '$nameEn ($nameBn)',
-                                                style: const TextStyle(
-                                                  fontSize: 25,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.white,
-                                                ),
-                                              ),
-                                              SizedBox(
-                                                height: 5,
+                                                'Back',
+                                                style: TextStyle(
+                                                    fontSize: 25,
+                                                    color: Colors.white),
+                                                textAlign: TextAlign.center,
                                               ),
                                             ],
                                           ),
-                                        )
-                                            : FittedBox(
-                                          fit: BoxFit.scaleDown,
-                                          child: Text(
-                                            '$nameEn ($nameBn)',
-                                            style: const TextStyle(
-                                              fontSize: 25,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                  SizedBox(
+                                    height: 20,
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                          /*FutureBuilder<Map<String, dynamic>>(
+                      future: _apiService.fetchData(),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return const Center(child: CircularProgressIndicator());
+                        }
+                        if (snapshot.hasError || !snapshot.hasData) {
+                          return Center(
+                              child: Text('Error: ${snapshot.error ?? "No data"}'));
+                        }
+                        final String companyName =
+                            snapshot.data!['company']?.name ?? '';
+                        final List<dynamic> categoriesData =
+                            snapshot.data!['categories'] ?? [];
+                        final bool shouldDialog =
+                            snapshot.data!['config']['collect_data'] ?? '';
+                        print(shouldDialog);
+
+                        return LayoutBuilder(
+                          builder:
+                              (BuildContext context, BoxConstraints constraints) {
+                            return Column(
+                              children: categoriesData.map<Widget>((category) {
+                                final String nameEn = category.nameEn;
+                                final String nameBn = category.nameBn;
+                                final String DocBn = category.DocBn;
+                                final String DocEn = category.DocEn;
+                                final String DocDesignation = category.DocDesignation;
+                                final String DocRoom = category.DocRoom;
+
+                                return StatefulBuilder(
+                                  builder: (context, setState) {
+                                    return Column(
+                                      children: [
+                                        ElevatedButton(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor:
+                                            Theme.of(context).colorScheme.primary,
+                                            fixedSize: Size(screenWidth * 0.8,
+                                                screenHeight * 0.1),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(5),
+                                            ),
+                                          ),
+                                          onPressed: () async {
+                                            setState(() {
+                                              isLoadingIndex =
+                                                  categoriesData.indexOf(category);
+                                              showLoadingOverlay(context);
+                                            });
+                                            final int categoryID = category.id;
+                                            // final String authToken = '16253100c9ba119436b8089c338cb86cf420a51c4ed4bb0626dcbac295b2fd66';
+                                            final String authToken = URLs().token;
+                                            if (shouldDialog == false) {
+                                              final url =
+                                                  '${URLs().Basepath}/api/create-token';
+                                              final response = await http
+                                                  .post(Uri.parse(url), headers: {
+                                                'Content-Type': 'application/json',
+                                                'Authorization': '$authToken',
+                                              }, body: {
+                                                'id': categoryID,
+                                              });
+                                              if (response.statusCode == 200) {
+                                                final responseData =
+                                                json.decode(response.body);
+                                                print(responseData);
+                                                final data = responseData['data'];
+                                                final Token = data['token'];
+                                                final Time = data['time'];
+                                                print(
+                                                    'Token: $Token, Time and Date: $Time');
+
+                                                final SunmiPosSdk sunmiPosSdk =
+                                                SunmiPosSdk();
+                                                await sunmiPosSdk.printReceipt(
+                                                    context,
+                                                    '$Token',
+                                                    '$Time',
+                                                    '$nameEn',
+                                                    '$nameBn',
+                                                    '$companyName',
+                                                    shouldDialog,
+                                                    '',
+                                                    '',
+                                                    '',
+                                                    '');
+
+                                                showDialog(
+                                                  context: context,
+                                                  barrierDismissible: false,
+                                                  builder: (BuildContext context) {
+                                                    return Center(
+                                                      child: buildAlertDialog(Token,
+                                                          Time, '$nameEn ($nameBn)'),
+                                                    );
+                                                  },
+                                                );
+
+                                                setState(() {
+                                                  isLoadingIndex = -1;
+                                                });
+                                              } else {
+                                                print(
+                                                    'Failed to fetch data: ${response.statusCode}');
+                                              }
+                                            }
+                                            else if (shouldDialog == true) {
+                                              */ /* closeLoadingOverlay(context);*/ /*
+                                              Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder: (context) =>
+                                                        EnterDetailsPage(
+                                                          authToken: authToken,
+                                                          categoryID: categoryID,
+                                                          nameBn: nameBn,
+                                                          nameEn: nameEn,
+                                                          shouldDialog: shouldDialog,
+                                                          DocEn: DocEn,
+                                                          DocBn: DocBn,
+                                                          DocDesignation: DocDesignation,
+                                                          DocRoom: DocRoom,
+                                                        ),
+                                                  ));
+                                            }
+                                          },
+                                          child: shouldDialog
+                                              ? FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            child: Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                SizedBox(
+                                                  height: 5,
+                                                ),
+                                                Text(
+                                                  '$DocEn ($DocBn), $DocDesignation, Room No (রুম নং): $DocRoom',
+                                                  style: TextStyle(
+                                                      fontSize: 25,
+                                                      color: Colors.white),
+                                                ),
+                                                SizedBox(
+                                                  height: 5,
+                                                ),
+                                                Text(
+                                                  '$nameEn ($nameBn)',
+                                                  style: const TextStyle(
+                                                    fontSize: 25,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.white,
+                                                  ),
+                                                ),
+                                                SizedBox(
+                                                  height: 5,
+                                                ),
+                                              ],
+                                            ),
+                                          )
+                                              : FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            child: Text(
+                                              '$nameEn ($nameBn)',
+                                              style: const TextStyle(
+                                                fontSize: 25,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.white,
+                                              ),
                                             ),
                                           ),
                                         ),
+                                        SizedBox(height: screenHeight * 0.01),
+                                      ],
+                                    );
+                                  },
+                                );
+                              }).toList(),
+                            );
+                          },
+                        );
+                      },
+                    ),*/
+                        ],
+                      ),
+                    ),
+                  );
+                } else if (value == 'input') {
+                  return SingleChildScrollView(
+                    child: Padding(
+                      padding: const EdgeInsets.all(32.0),
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Title inside the body with Bangla translation appended
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 16.0),
+                              child: Text(
+                                "Enter Details (বিবরণ লিখুন)",
+                                style: const TextStyle(
+                                  fontSize: 25,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black,
+                                ),
+                              ),
+                            ),
+                            // Text field for Patient Name
+                            TextFormField(
+                              controller: nameController,
+                              decoration: const InputDecoration(
+                                labelText: 'Patient Name (রোগীর নাম)',
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            // Text field for Mobile Number
+                            TextFormField(
+                              controller: phoneController,
+                              decoration: const InputDecoration(
+                                labelText: 'Mobile Number (মোবাইল নম্বর)',
+                              ),
+                              keyboardType: TextInputType.phone,
+                              validator: validateBangladeshiPhoneNumber,
+                            ),
+                            const SizedBox(height: 10),
+                            // Display error message if any
+                            if (errorMessage.isNotEmpty)
+                              Text(
+                                errorMessage,
+                                style: const TextStyle(color: Colors.red),
+                                textAlign: TextAlign.center,
+                              ),
+                            const SizedBox(height: 20),
+                            // Centered Print button
+                            Center(
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor:
+                                      Theme.of(context).colorScheme.primary,
+                                  primary: Theme.of(context).primaryColor,
+                                  fixedSize: Size(
+                                      screenWidth * 0.25, screenHeight * 0.12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(
+                                        10.0), // Adjust the radius as needed
+                                  ),
+                                ),
+                                onPressed: isLoading ? null : _handlePrint,
+                                child: isLoading
+                                    ? const CircularProgressIndicator()
+                                    : const Text(
+                                        "Print",
+                                        style: const TextStyle(
+                                          fontSize: 25,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
                                       ),
-                                      SizedBox(height: screenHeight * 0.01),
-                                    ],
-                                  );
-                                },
-                              );
-                            }).toList(),
-                          );
-                        },
-                      );
-                    },
-                  ),*/
-                  ],
-                ),
-              ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }
+                return Container(
+                  color: Colors.white,
+                  child: CircularProgressIndicator(),
+                );
+              },
             ),
             bottomNavigationBar: Container(
               height: screenHeight * 0.075,
@@ -989,9 +1277,12 @@ class _UIScreenState extends State<UIScreen> {
               child: TextButton(
                 onPressed: () {
                   Navigator.of(context).pop();
-                  Future.delayed(Duration(milliseconds: 10), () {
-                    closeLoadingOverlay(context);
+                  setState(() {
+                    layer = 'categories';
                   });
+                  /*    Future.delayed(Duration(milliseconds: 10), () {
+                    closeLoadingOverlay(context);
+                  });*/
                 },
                 style: ButtonStyle(
                   backgroundColor: MaterialStateProperty.resolveWith<Color>(

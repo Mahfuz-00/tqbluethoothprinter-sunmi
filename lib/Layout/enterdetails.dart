@@ -9,26 +9,12 @@ import '../Sunmi T2s/sunmit2ssdk.dart';
 
 class EnterDetailsPage extends StatefulWidget {
   final String authToken;
-  final int categoryID;
-  final String nameBn;
-  final String nameEn;
-  final bool shouldDialog;
-  final String DocEn;
-  final String DocBn;
-  final String DocDesignation;
-  final String DocRoom;
+  final Map<String, dynamic> jsonBody;
 
   const EnterDetailsPage({
     Key? key,
     required this.authToken,
-    required this.categoryID,
-    required this.nameEn,
-    required this.nameBn,
-    required this.shouldDialog,
-    required this.DocEn,
-    required this.DocBn,
-    required this.DocDesignation,
-    required this.DocRoom,
+    required this.jsonBody
   }) : super(key: key);
 
   @override
@@ -50,13 +36,16 @@ class _EnterDetailsPageState extends State<EnterDetailsPage> {
   void initState() {
     super.initState();
     // TODO: implement initial state
-    Future.delayed(const Duration(seconds: 1), () {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Your code that calls setState()
+    });
+/*    Future.delayed(const Duration(seconds: 1), () {
       // This attempts to pop any overlay dialog that might still be showing.
       // Using the root navigator ensures that you target dialogs/overlays.
       if (Navigator.of(context, rootNavigator: true).canPop()) {
         Navigator.of(context, rootNavigator: true).pop();
       }
-    });
+    });*/
   }
 
   @override
@@ -125,73 +114,77 @@ class _EnterDetailsPageState extends State<EnterDetailsPage> {
             ),
           ),
         ),
-        body: Padding(
-          padding: const EdgeInsets.all(32.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Title inside the body with Bangla translation appended
-              Padding(
-                padding: const EdgeInsets.only(bottom: 16.0),
-                child: Text(
-                  "Enter Details (বিবরণ লিখুন)",
-                  style: const TextStyle(
-                    fontSize: 25,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
-              ),
-              // Text field for Patient Name
-              TextFormField(
-                controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Patient Name (রোগীর নাম)',
-                ),
-              ),
-              const SizedBox(height: 10),
-              // Text field for Mobile Number
-              TextFormField(
-                controller: phoneController,
-                decoration: const InputDecoration(
-                  labelText: 'Mobile Number (মোবাইল নম্বর)',
-                ),
-                keyboardType: TextInputType.phone,
-              ),
-              const SizedBox(height: 10),
-              // Display error message if any
-              if (errorMessage.isNotEmpty)
-                Text(
-                  errorMessage,
-                  style: const TextStyle(color: Colors.red),
-                  textAlign: TextAlign.center,
-                ),
-              const SizedBox(height: 20),
-              // Centered Print button
-              Center(
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    primary: Theme.of(context).primaryColor,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(
-                          10.0), // Adjust the radius as needed
+        body: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(32.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Title inside the body with Bangla translation appended
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16.0),
+                  child: Text(
+                    "Enter Details (বিবরণ লিখুন)",
+                    style: const TextStyle(
+                      fontSize: 25,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
                     ),
                   ),
-                  onPressed: isLoading ? null : _handlePrint,
-                  child: isLoading
-                      ? const CircularProgressIndicator()
-                      : const Text(
-                          "Print",
-                          style: const TextStyle(
-                            fontSize: 25,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
                 ),
-              ),
-            ],
+                // Text field for Patient Name
+                TextFormField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Patient Name (রোগীর নাম)',
+                  ),
+                ),
+                const SizedBox(height: 10),
+                // Text field for Mobile Number
+                TextFormField(
+                  controller: phoneController,
+                  decoration: const InputDecoration(
+                    labelText: 'Mobile Number (মোবাইল নম্বর)',
+                  ),
+                  keyboardType: TextInputType.phone,
+                ),
+                const SizedBox(height: 10),
+                // Display error message if any
+                if (errorMessage.isNotEmpty)
+                  Text(
+                    errorMessage,
+                    style: const TextStyle(color: Colors.red),
+                    textAlign: TextAlign.center,
+                  ),
+                const SizedBox(height: 20),
+                // Centered Print button
+                Center(
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      primary: Theme.of(context).primaryColor,
+                      fixedSize: Size(screenWidth * 0.25,
+                          screenHeight * 0.12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(
+                            10.0), // Adjust the radius as needed
+                      ),
+                    ),
+                    onPressed: isLoading ? null : _handlePrint,
+                    child: isLoading
+                        ? const CircularProgressIndicator()
+                        : const Text(
+                            "Print",
+                            style: const TextStyle(
+                              fontSize: 25,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         bottomNavigationBar: Container(
@@ -227,7 +220,7 @@ class _EnterDetailsPageState extends State<EnterDetailsPage> {
 
   Future<void> _handlePrint() async {
     // Dismiss the keyboard
-    FocusScope.of(context).unfocus();
+    // FocusScope.of(context).unfocus();
 
     // Validate that both fields are filled
     if (nameController.text.isEmpty || phoneController.text.isEmpty) {
@@ -245,6 +238,14 @@ class _EnterDetailsPageState extends State<EnterDetailsPage> {
       isLoading = true;
     });
 
+    widget.jsonBody.addAll({
+      'name': nameController.text,
+      'mobile_number': phoneController.text,
+    });
+
+    print('Input Json: ${widget.jsonBody}');
+
+
     // Build the API URL (assuming your URLs class provides this)
     final url = '${URLs().Basepath}/api/create-token';
 
@@ -256,24 +257,19 @@ class _EnterDetailsPageState extends State<EnterDetailsPage> {
           'Content-Type': 'application/json',
           'Authorization': widget.authToken,
         },
-        body: jsonEncode({
-          'name': nameController.text,
-          'id': widget.categoryID,
-          'mobile_number': phoneController.text,
-        }),
+        body: json.encode(widget.jsonBody),
       );
 
       if (response.statusCode == 200) {
         final responseData = json.decode(response.body);
+        print('Response data: ${responseData}');
         final data = responseData['data'];
         final token = data['token'];
         final time = data['time'];
         final categoryName = data['category'];
-        final doctor = data['doctor'];
-        final designation = data['designation'];
-        final room = data['room'];
+        final additionalData = data['additionalData'];
         print(
-            'Token: $token, Time and Date: $time, Category: $categoryName, doctor: $doctor, designation: $designation, Room: $room');
+            'Token: $token, Time and Date: $time, Category: $categoryName, Additional Data: $additionalData');
 
         // Call the printReceipt function from your SDK
         final SunmiPosSdk sunmiPosSdk = SunmiPosSdk();
@@ -281,14 +277,8 @@ class _EnterDetailsPageState extends State<EnterDetailsPage> {
           context,
           '$token',
           '$time',
-          nameController.text,
-          widget.nameBn,
-          widget.nameEn,
-          widget.shouldDialog,
-          widget.DocEn,
-          widget.DocBn,
-          widget.DocDesignation,
-          widget.DocRoom,
+          // nameController.text,
+          '$categoryName', additionalData
         );
 
         // After printing is complete, pop the page back to the previous screen.
