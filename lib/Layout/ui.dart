@@ -275,7 +275,7 @@ class _UIScreenState extends State<UIScreen> {
   void handleFinalOption(String FinalOption) {
     print('Type? : $FinalOption');
     if (FinalOption == 'data') {
-      screenchange.value = 'data';
+      // screenchange.value = 'data';
       // Implement your printing logic here
       print('Printing: $FinalOption');
 
