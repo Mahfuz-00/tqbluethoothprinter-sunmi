@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:footer/footer.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -209,8 +210,7 @@ class _UIScreenState extends State<UIScreen> {
       finalOption = currentItem['type'];
       print('Current Option: $finalOption');
       handleFinalOption(finalOption);
-    }
-    if (layer == 'children' ||
+    } else if (layer == 'children' ||
         layer == '' ||
         layer == null && currentItem['children'] == null) {
       finalOption = currentItem['type'];
@@ -484,6 +484,18 @@ class _UIScreenState extends State<UIScreen> {
 
         // After printing is complete, pop the page back to the previous screen.
         if (printSuccess) {
+          // Show dialog with token details
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (BuildContext context) {
+              return Center(
+                child: buildAlertDialog(token, time, '$categoryName'),
+              );
+            },
+          );
+
+
           setState(() {
             CompleteJson.clear();
             isback = false;
@@ -518,7 +530,7 @@ class _UIScreenState extends State<UIScreen> {
     if (value == null || value.isEmpty) {
       return 'Please enter a mobile number.';
     } else if (!regExp.hasMatch(value)) {
-      return 'Please enter a valid Bangladeshi mobile number.';
+      return 'Please enter a valid mobile number.';
     }
     return null;
   }
@@ -761,7 +773,7 @@ class _UIScreenState extends State<UIScreen> {
                                 FittedBox(
                                   fit: BoxFit.scaleDown,
                                   child: Text(
-                                    'WELCOME',
+                                    'WELCOME (স্বাগতম)',
                                     style: TextStyle(
                                       color:
                                           Theme.of(context).colorScheme.primary,
@@ -776,7 +788,7 @@ class _UIScreenState extends State<UIScreen> {
                                 const FittedBox(
                                   fit: BoxFit.scaleDown,
                                   child: Text(
-                                    'Please Select an option from below',
+                                    'Please Select an option(s) from below (নীচের থেকে একটি বিকল্প(গুলি) নির্বাচন করুন)',
                                     style: TextStyle(
                                       color: Colors.black,
                                       fontSize: 30,
@@ -808,112 +820,128 @@ class _UIScreenState extends State<UIScreen> {
                               final currentOptions = getCurrentOptions(data);
                               print('CO :${currentOptions['options']}');
 
-                              if (currentOptions['options'] == null) {
-                                setState(() {
+                              if (currentOptions['options'] == null ||
+                                  currentOptions['options'].isEmpty) {
+                           /*     setState(() {
+                                  CompleteJson.clear();
                                   isback = false;
+                                  selectionStack.clear();
+                                  layer = 'categories';
+                                  value = '';
                                 });
+
+                                Fluttertoast.showToast(
+                                  msg: "Complete Json:${CompleteJson}, Selection Stack:${selectionStack}, Layer:${layer}, Isback:${isback} Value: ${value}",
+                                  toastLength: Toast.LENGTH_LONG, // Note: Toast.LENGTH_LONG typically lasts for 3.5 seconds
+                                  gravity: ToastGravity.BOTTOM,
+                                  timeInSecForIosWeb: 10, // For iOS and web, specify the duration in seconds
+                                  backgroundColor: Colors.black,
+                                  textColor: Colors.white,
+                                  fontSize: 16.0,
+                                );*/
+
                                 return Container(
                                   color: Colors.white,
                                   child: CircularProgressIndicator(),
                                 );
-                              }
+                              } else{
+                                // print('Data: ${jsonEncode(currentOptions)}');
 
-                              // print('Data: ${jsonEncode(currentOptions)}');
-
-                              return Column(
-                                children: [
-                                  ListView.builder(
-                                    padding: EdgeInsets.symmetric(
-                                        horizontal: screenWidth * 0.1,
-                                        vertical: 3),
-                                    shrinkWrap: true,
-                                    physics: NeverScrollableScrollPhysics(),
-                                    itemCount: currentOptions['options'].length,
-                                    itemBuilder: (context, index) {
-                                      final option =
-                                          currentOptions['options'][index];
-                                      return Column(
-                                        children: [
-                                          ElevatedButton(
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: Theme.of(context)
-                                                  .colorScheme
-                                                  .primary,
-                                              fixedSize: Size(screenWidth * 0.7,
-                                                  screenHeight * 0.12),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(5),
+                                return Column(
+                                  children: [
+                                    ListView.builder(
+                                      padding: EdgeInsets.symmetric(
+                                          horizontal: screenWidth * 0.1,
+                                          vertical: 3),
+                                      shrinkWrap: true,
+                                      physics: NeverScrollableScrollPhysics(),
+                                      itemCount: currentOptions['options'].length,
+                                      itemBuilder: (context, index) {
+                                        final option =
+                                        currentOptions['options'][index];
+                                        return Column(
+                                          children: [
+                                            ElevatedButton(
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: Theme.of(context)
+                                                    .colorScheme
+                                                    .primary,
+                                                fixedSize: Size(screenWidth * 0.7,
+                                                    screenHeight * 0.12),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                  BorderRadius.circular(5),
+                                                ),
+                                              ),
+                                              onPressed: () =>
+                                                  handleSelection(option),
+                                              child: FittedBox(
+                                                fit: BoxFit.scaleDown,
+                                                child: Text(
+                                                  '${option['name_en'] ?? option['name']} (${option['name_bn']})',
+                                                  style: TextStyle(
+                                                      fontSize: 25,
+                                                      color: Colors.white),
+                                                  textAlign: TextAlign.center,
+                                                ),
                                               ),
                                             ),
-                                            onPressed: () =>
-                                                handleSelection(option),
-                                            child: FittedBox(
-                                              fit: BoxFit.scaleDown,
-                                              child: Text(
-                                                '${option['name_en'] ?? option['name']} (${option['name_bn']})',
-                                                style: TextStyle(
-                                                    fontSize: 25,
-                                                    color: Colors.white),
-                                                textAlign: TextAlign.center,
-                                              ),
+                                            SizedBox(
+                                              height: 10,
+                                            )
+                                          ],
+                                        );
+                                      },
+                                    ),
+                                    SizedBox(
+                                      height: 10,
+                                    ),
+                                    if (isback) ...[
+                                      Center(
+                                        child: ElevatedButton(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Theme.of(context)
+                                                .colorScheme
+                                                .primary,
+                                            fixedSize: Size(screenWidth * 0.25,
+                                                screenHeight * 0.12),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                              BorderRadius.circular(5),
                                             ),
                                           ),
-                                          SizedBox(
-                                            height: 10,
-                                          )
-                                        ],
-                                      );
-                                    },
-                                  ),
-                                  SizedBox(
-                                    height: 10,
-                                  ),
-                                  if (isback) ...[
-                                    Center(
-                                      child: ElevatedButton(
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Theme.of(context)
-                                              .colorScheme
-                                              .primary,
-                                          fixedSize: Size(screenWidth * 0.25,
-                                              screenHeight * 0.12),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(5),
-                                          ),
-                                        ),
-                                        onPressed: () => handleBack(),
-                                        child: FittedBox(
-                                          fit: BoxFit.scaleDown,
-                                          child: Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Icon(
-                                                Icons
-                                                    .arrow_back_ios_new_outlined,
-                                                color: Colors.white,
-                                              ),
-                                              SizedBox(width: 10),
-                                              Text(
-                                                'Back',
-                                                style: TextStyle(
-                                                    fontSize: 25,
-                                                    color: Colors.white),
-                                                textAlign: TextAlign.center,
-                                              ),
-                                            ],
+                                          onPressed: () => handleBack(),
+                                          child: FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            child: Row(
+                                              mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                              children: [
+                                                Icon(
+                                                  Icons
+                                                      .arrow_back_ios_new_outlined,
+                                                  color: Colors.white,
+                                                ),
+                                                SizedBox(width: 10),
+                                                Text(
+                                                  'Back',
+                                                  style: TextStyle(
+                                                      fontSize: 25,
+                                                      color: Colors.white),
+                                                  textAlign: TextAlign.center,
+                                                ),
+                                              ],
+                                            ),
                                           ),
                                         ),
                                       ),
+                                    ],
+                                    SizedBox(
+                                      height: 20,
                                     ),
                                   ],
-                                  SizedBox(
-                                    height: 20,
-                                  ),
-                                ],
-                              );
+                                );
+                              }
                             },
                           ),
                           /*FutureBuilder<Map<String, dynamic>>(
@@ -1210,7 +1238,17 @@ class _UIScreenState extends State<UIScreen> {
                     SizedBox(
                       width: screenWidth * 0.35,
                     ),
-                    Text('Developed and Maintained by: Touch and Solve'),
+                    Row(
+                      children: [
+                        Text('Developed and Maintained by: '),
+                        Image.asset(
+                          'Assets/TNS_Logo.png',
+                          width: 25,
+                          height: 25,
+                        ),
+                        Text('Touch and Solve'),
+                      ],
+                    ),
                   ],
                 ),
               ),
