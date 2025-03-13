@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:footer/footer.dart';
 import 'package:http/http.dart' as http;
+import 'package:restart_app/restart_app.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../API/apiservice.dart';
@@ -20,7 +21,7 @@ class UIScreen extends StatefulWidget {
   _UIScreenState createState() => _UIScreenState();
 }
 
-class _UIScreenState extends State<UIScreen> {
+class _UIScreenState extends State<UIScreen> with WidgetsBindingObserver{
   final ApiService _apiService = ApiService();
   bool isFullScreen = false;
   int isLoadingIndex = -1;
@@ -38,9 +39,29 @@ class _UIScreenState extends State<UIScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _dataFuture = _apiService.fetchData();
     initSdk();
   }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.paused) {
+      // App is in background
+    } else if (state == AppLifecycleState.resumed) {
+      // App has come to the foreground
+      // Restart the app
+      Restart.restartApp();
+    }
+  }
+
 
   Future<void> initSdk() async {
     try {
@@ -753,448 +774,452 @@ class _UIScreenState extends State<UIScreen> {
                 ),
               ),
             ),
-            body: ValueListenableBuilder<String>(
-              valueListenable: screenchange,
-              builder: (context, value, child) {
-                if (value != 'input') {
-                  return SafeArea(
-                    child: SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          SizedBox(
-                            height: screenHeight * 0.05,
-                          ),
-                          Container(
-                            alignment: Alignment.center,
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  child: Text(
-                                    'WELCOME (স্বাগতম)',
-                                    style: TextStyle(
-                                      color:
-                                          Theme.of(context).colorScheme.primary,
-                                      fontSize: 30,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                                SizedBox(
-                                  height: screenHeight * 0.025,
-                                ),
-                                const FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  child: Text(
-                                    'Please Select an option(s) from below (নীচের থেকে একটি বিকল্প(গুলি) নির্বাচন করুন)',
-                                    style: TextStyle(
-                                      color: Colors.black,
-                                      fontSize: 30,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ],
+            body: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: ValueListenableBuilder<String>(
+                valueListenable: screenchange,
+                builder: (context, value, child) {
+                  if (value != 'input') {
+                    return SafeArea(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              height: screenHeight * 0.05,
                             ),
-                          ),
-                          SizedBox(
-                            height: screenHeight * 0.05,
-                          ),
-                          FutureBuilder<Map<String, dynamic>>(
-                            future: _dataFuture,
-                            builder: (context, snapshot) {
-                              if (snapshot.connectionState ==
-                                  ConnectionState.waiting) {
-                                return const Center(
-                                    child: CircularProgressIndicator());
-                              }
-                              if (snapshot.hasError || !snapshot.hasData) {
-                                return Center(
+                            Container(
+                              alignment: Alignment.center,
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
                                     child: Text(
-                                        'Error: ${snapshot.error ?? "No data"}'));
-                              }
-
-                              final data = snapshot.data!;
-                              final currentOptions = getCurrentOptions(data);
-                              print('CO :${currentOptions['options']}');
-
-                              if (currentOptions['options'] == null ||
-                                  currentOptions['options'].isEmpty) {
-                           /*     setState(() {
-                                  CompleteJson.clear();
-                                  isback = false;
-                                  selectionStack.clear();
-                                  layer = 'categories';
-                                  value = '';
-                                });
-
-                                Fluttertoast.showToast(
-                                  msg: "Complete Json:${CompleteJson}, Selection Stack:${selectionStack}, Layer:${layer}, Isback:${isback} Value: ${value}",
-                                  toastLength: Toast.LENGTH_LONG, // Note: Toast.LENGTH_LONG typically lasts for 3.5 seconds
-                                  gravity: ToastGravity.BOTTOM,
-                                  timeInSecForIosWeb: 10, // For iOS and web, specify the duration in seconds
-                                  backgroundColor: Colors.black,
-                                  textColor: Colors.white,
-                                  fontSize: 16.0,
-                                );*/
-
-                                return Container(
-                                  color: Colors.white,
-                                  child: CircularProgressIndicator(),
-                                );
-                              } else{
-                                // print('Data: ${jsonEncode(currentOptions)}');
-
-                                return Column(
-                                  children: [
-                                    ListView.builder(
-                                      padding: EdgeInsets.symmetric(
-                                          horizontal: screenWidth * 0.1,
-                                          vertical: 3),
-                                      shrinkWrap: true,
-                                      physics: NeverScrollableScrollPhysics(),
-                                      itemCount: currentOptions['options'].length,
-                                      itemBuilder: (context, index) {
-                                        final option =
-                                        currentOptions['options'][index];
-                                        return Column(
-                                          children: [
-                                            ElevatedButton(
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: Theme.of(context)
-                                                    .colorScheme
-                                                    .primary,
-                                                fixedSize: Size(screenWidth * 0.7,
-                                                    screenHeight * 0.12),
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                  BorderRadius.circular(5),
-                                                ),
-                                              ),
-                                              onPressed: () =>
-                                                  handleSelection(option),
-                                              child: FittedBox(
-                                                fit: BoxFit.scaleDown,
-                                                child: Text(
-                                                  '${option['name_en'] ?? option['name']} (${option['name_bn']})',
-                                                  style: TextStyle(
-                                                      fontSize: 25,
-                                                      color: Colors.white),
-                                                  textAlign: TextAlign.center,
-                                                ),
-                                              ),
-                                            ),
-                                            SizedBox(
-                                              height: 10,
-                                            )
-                                          ],
-                                        );
-                                      },
-                                    ),
-                                    SizedBox(
-                                      height: 10,
-                                    ),
-                                    if (isback) ...[
-                                      Center(
-                                        child: ElevatedButton(
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: Theme.of(context)
-                                                .colorScheme
-                                                .primary,
-                                            fixedSize: Size(screenWidth * 0.25,
-                                                screenHeight * 0.12),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                              BorderRadius.circular(5),
-                                            ),
-                                          ),
-                                          onPressed: () => handleBack(),
-                                          child: FittedBox(
-                                            fit: BoxFit.scaleDown,
-                                            child: Row(
-                                              mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                              children: [
-                                                Icon(
-                                                  Icons
-                                                      .arrow_back_ios_new_outlined,
-                                                  color: Colors.white,
-                                                ),
-                                                SizedBox(width: 10),
-                                                Text(
-                                                  'Back',
-                                                  style: TextStyle(
-                                                      fontSize: 25,
-                                                      color: Colors.white),
-                                                  textAlign: TextAlign.center,
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                    SizedBox(
-                                      height: 20,
-                                    ),
-                                  ],
-                                );
-                              }
-                            },
-                          ),
-                          /*FutureBuilder<Map<String, dynamic>>(
-                      future: _apiService.fetchData(),
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState == ConnectionState.waiting) {
-                          return const Center(child: CircularProgressIndicator());
-                        }
-                        if (snapshot.hasError || !snapshot.hasData) {
-                          return Center(
-                              child: Text('Error: ${snapshot.error ?? "No data"}'));
-                        }
-                        final String companyName =
-                            snapshot.data!['company']?.name ?? '';
-                        final List<dynamic> categoriesData =
-                            snapshot.data!['categories'] ?? [];
-                        final bool shouldDialog =
-                            snapshot.data!['config']['collect_data'] ?? '';
-                        print(shouldDialog);
-
-                        return LayoutBuilder(
-                          builder:
-                              (BuildContext context, BoxConstraints constraints) {
-                            return Column(
-                              children: categoriesData.map<Widget>((category) {
-                                final String nameEn = category.nameEn;
-                                final String nameBn = category.nameBn;
-                                final String DocBn = category.DocBn;
-                                final String DocEn = category.DocEn;
-                                final String DocDesignation = category.DocDesignation;
-                                final String DocRoom = category.DocRoom;
-
-                                return StatefulBuilder(
-                                  builder: (context, setState) {
-                                    return Column(
-                                      children: [
-                                        ElevatedButton(
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor:
+                                      'WELCOME (স্বাগতম)',
+                                      style: TextStyle(
+                                        color:
                                             Theme.of(context).colorScheme.primary,
-                                            fixedSize: Size(screenWidth * 0.8,
-                                                screenHeight * 0.1),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(5),
-                                            ),
-                                          ),
-                                          onPressed: () async {
-                                            setState(() {
-                                              isLoadingIndex =
-                                                  categoriesData.indexOf(category);
-                                              showLoadingOverlay(context);
-                                            });
-                                            final int categoryID = category.id;
-                                            // final String authToken = '16253100c9ba119436b8089c338cb86cf420a51c4ed4bb0626dcbac295b2fd66';
-                                            final String authToken = URLs().token;
-                                            if (shouldDialog == false) {
-                                              final url =
-                                                  '${URLs().Basepath}/api/create-token';
-                                              final response = await http
-                                                  .post(Uri.parse(url), headers: {
-                                                'Content-Type': 'application/json',
-                                                'Authorization': '$authToken',
-                                              }, body: {
-                                                'id': categoryID,
-                                              });
-                                              if (response.statusCode == 200) {
-                                                final responseData =
-                                                json.decode(response.body);
-                                                print(responseData);
-                                                final data = responseData['data'];
-                                                final Token = data['token'];
-                                                final Time = data['time'];
-                                                print(
-                                                    'Token: $Token, Time and Date: $Time');
+                                        fontSize: 30,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    height: screenHeight * 0.025,
+                                  ),
+                                  const FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      'Please Select an option(s) from below (নীচের থেকে একটি বিকল্প(গুলি) নির্বাচন করুন)',
+                                      style: TextStyle(
+                                        color: Colors.black,
+                                        fontSize: 30,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            SizedBox(
+                              height: screenHeight * 0.05,
+                            ),
+                            FutureBuilder<Map<String, dynamic>>(
+                              future: _dataFuture,
+                              builder: (context, snapshot) {
+                                if (snapshot.connectionState ==
+                                    ConnectionState.waiting) {
+                                  return const Center(
+                                      child: CircularProgressIndicator());
+                                }
+                                if (snapshot.hasError || !snapshot.hasData) {
+                                  return Center(
+                                      child: Text(
+                                          'Error: ${snapshot.error ?? "No data"}'));
+                                }
 
-                                                final SunmiPosSdk sunmiPosSdk =
-                                                SunmiPosSdk();
-                                                await sunmiPosSdk.printReceipt(
-                                                    context,
-                                                    '$Token',
-                                                    '$Time',
-                                                    '$nameEn',
-                                                    '$nameBn',
-                                                    '$companyName',
-                                                    shouldDialog,
-                                                    '',
-                                                    '',
-                                                    '',
-                                                    '');
+                                final data = snapshot.data!;
+                                final currentOptions = getCurrentOptions(data);
+                                print('CO :${currentOptions['options']}');
 
-                                                showDialog(
-                                                  context: context,
-                                                  barrierDismissible: false,
-                                                  builder: (BuildContext context) {
-                                                    return Center(
-                                                      child: buildAlertDialog(Token,
-                                                          Time, '$nameEn ($nameBn)'),
-                                                    );
-                                                  },
-                                                );
+                                if (currentOptions['options'] == null ||
+                                    currentOptions['options'].isEmpty) {
+                             /*     setState(() {
+                                    CompleteJson.clear();
+                                    isback = false;
+                                    selectionStack.clear();
+                                    layer = 'categories';
+                                    value = '';
+                                  });
 
-                                                setState(() {
-                                                  isLoadingIndex = -1;
-                                                });
-                                              } else {
-                                                print(
-                                                    'Failed to fetch data: ${response.statusCode}');
-                                              }
-                                            }
-                                            else if (shouldDialog == true) {
-                                              */ /* closeLoadingOverlay(context);*/ /*
-                                              Navigator.push(
-                                                  context,
-                                                  MaterialPageRoute(
-                                                    builder: (context) =>
-                                                        EnterDetailsPage(
-                                                          authToken: authToken,
-                                                          categoryID: categoryID,
-                                                          nameBn: nameBn,
-                                                          nameEn: nameEn,
-                                                          shouldDialog: shouldDialog,
-                                                          DocEn: DocEn,
-                                                          DocBn: DocBn,
-                                                          DocDesignation: DocDesignation,
-                                                          DocRoom: DocRoom,
-                                                        ),
-                                                  ));
-                                            }
-                                          },
-                                          child: shouldDialog
-                                              ? FittedBox(
-                                            fit: BoxFit.scaleDown,
-                                            child: Column(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                SizedBox(
-                                                  height: 5,
-                                                ),
-                                                Text(
-                                                  '$DocEn ($DocBn), $DocDesignation, Room No (রুম নং): $DocRoom',
-                                                  style: TextStyle(
-                                                      fontSize: 25,
-                                                      color: Colors.white),
-                                                ),
-                                                SizedBox(
-                                                  height: 5,
-                                                ),
-                                                Text(
-                                                  '$nameEn ($nameBn)',
-                                                  style: const TextStyle(
-                                                    fontSize: 25,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: Colors.white,
+                                  Fluttertoast.showToast(
+                                    msg: "Complete Json:${CompleteJson}, Selection Stack:${selectionStack}, Layer:${layer}, Isback:${isback} Value: ${value}",
+                                    toastLength: Toast.LENGTH_LONG, // Note: Toast.LENGTH_LONG typically lasts for 3.5 seconds
+                                    gravity: ToastGravity.BOTTOM,
+                                    timeInSecForIosWeb: 10, // For iOS and web, specify the duration in seconds
+                                    backgroundColor: Colors.black,
+                                    textColor: Colors.white,
+                                    fontSize: 16.0,
+                                  );*/
+
+                                  return Container(
+                                    color: Colors.white,
+                                    child: CircularProgressIndicator(),
+                                  );
+                                } else{
+                                  // print('Data: ${jsonEncode(currentOptions)}');
+
+                                  return Column(
+                                    children: [
+                                      ListView.builder(
+                                        padding: EdgeInsets.symmetric(
+                                            horizontal: screenWidth * 0.1,
+                                            vertical: 3),
+                                        shrinkWrap: true,
+                                        physics: NeverScrollableScrollPhysics(),
+                                        itemCount: currentOptions['options'].length,
+                                        itemBuilder: (context, index) {
+                                          final option =
+                                          currentOptions['options'][index];
+                                          return Column(
+                                            children: [
+                                              ElevatedButton(
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: Theme.of(context)
+                                                      .colorScheme
+                                                      .primary,
+                                                  fixedSize: Size(screenWidth * 0.7,
+                                                      screenHeight * 0.12),
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                    BorderRadius.circular(5),
                                                   ),
                                                 ),
-                                                SizedBox(
-                                                  height: 5,
+                                                onPressed: () =>
+                                                    handleSelection(option),
+                                                child: FittedBox(
+                                                  fit: BoxFit.scaleDown,
+                                                  child: Text(
+                                                    '${option['name_en'] ?? option['name']} (${option['name_bn']})',
+                                                    style: TextStyle(
+                                                        fontSize: 25,
+                                                        color: Colors.white),
+                                                    textAlign: TextAlign.center,
+                                                  ),
                                                 ),
-                                              ],
+                                              ),
+                                              SizedBox(
+                                                height: 10,
+                                              )
+                                            ],
+                                          );
+                                        },
+                                      ),
+                                      SizedBox(
+                                        height: 10,
+                                      ),
+                                      if (isback) ...[
+                                        Center(
+                                          child: ElevatedButton(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: Theme.of(context)
+                                                  .colorScheme
+                                                  .primary,
+                                              fixedSize: Size(screenWidth * 0.25,
+                                                  screenHeight * 0.12),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                BorderRadius.circular(5),
+                                              ),
                                             ),
-                                          )
-                                              : FittedBox(
-                                            fit: BoxFit.scaleDown,
-                                            child: Text(
-                                              '$nameEn ($nameBn)',
-                                              style: const TextStyle(
-                                                fontSize: 25,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.white,
+                                            onPressed: () => handleBack(),
+                                            child: FittedBox(
+                                              fit: BoxFit.scaleDown,
+                                              child: Row(
+                                                mainAxisAlignment:
+                                                MainAxisAlignment.spaceBetween,
+                                                children: [
+                                                  Icon(
+                                                    Icons
+                                                        .arrow_back_ios_new_outlined,
+                                                    color: Colors.white,
+                                                  ),
+                                                  SizedBox(width: 10),
+                                                  Text(
+                                                    'Back',
+                                                    style: TextStyle(
+                                                        fontSize: 25,
+                                                        color: Colors.white),
+                                                    textAlign: TextAlign.center,
+                                                  ),
+                                                ],
                                               ),
                                             ),
                                           ),
                                         ),
-                                        SizedBox(height: screenHeight * 0.01),
                                       ],
-                                    );
-                                  },
-                                );
-                              }).toList(),
-                            );
-                          },
-                        );
-                      },
-                    ),*/
-                        ],
+                                      SizedBox(
+                                        height: 20,
+                                      ),
+                                    ],
+                                  );
+                                }
+                              },
+                            ),
+                            /*FutureBuilder<Map<String, dynamic>>(
+                        future: _apiService.fetchData(),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return const Center(child: CircularProgressIndicator());
+                          }
+                          if (snapshot.hasError || !snapshot.hasData) {
+                            return Center(
+                                child: Text('Error: ${snapshot.error ?? "No data"}'));
+                          }
+                          final String companyName =
+                              snapshot.data!['company']?.name ?? '';
+                          final List<dynamic> categoriesData =
+                              snapshot.data!['categories'] ?? [];
+                          final bool shouldDialog =
+                              snapshot.data!['config']['collect_data'] ?? '';
+                          print(shouldDialog);
+
+                          return LayoutBuilder(
+                            builder:
+                                (BuildContext context, BoxConstraints constraints) {
+                              return Column(
+                                children: categoriesData.map<Widget>((category) {
+                                  final String nameEn = category.nameEn;
+                                  final String nameBn = category.nameBn;
+                                  final String DocBn = category.DocBn;
+                                  final String DocEn = category.DocEn;
+                                  final String DocDesignation = category.DocDesignation;
+                                  final String DocRoom = category.DocRoom;
+
+                                  return StatefulBuilder(
+                                    builder: (context, setState) {
+                                      return Column(
+                                        children: [
+                                          ElevatedButton(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor:
+                                              Theme.of(context).colorScheme.primary,
+                                              fixedSize: Size(screenWidth * 0.8,
+                                                  screenHeight * 0.1),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(5),
+                                              ),
+                                            ),
+                                            onPressed: () async {
+                                              setState(() {
+                                                isLoadingIndex =
+                                                    categoriesData.indexOf(category);
+                                                showLoadingOverlay(context);
+                                              });
+                                              final int categoryID = category.id;
+                                              // final String authToken = '16253100c9ba119436b8089c338cb86cf420a51c4ed4bb0626dcbac295b2fd66';
+                                              final String authToken = URLs().token;
+                                              if (shouldDialog == false) {
+                                                final url =
+                                                    '${URLs().Basepath}/api/create-token';
+                                                final response = await http
+                                                    .post(Uri.parse(url), headers: {
+                                                  'Content-Type': 'application/json',
+                                                  'Authorization': '$authToken',
+                                                }, body: {
+                                                  'id': categoryID,
+                                                });
+                                                if (response.statusCode == 200) {
+                                                  final responseData =
+                                                  json.decode(response.body);
+                                                  print(responseData);
+                                                  final data = responseData['data'];
+                                                  final Token = data['token'];
+                                                  final Time = data['time'];
+                                                  print(
+                                                      'Token: $Token, Time and Date: $Time');
+
+                                                  final SunmiPosSdk sunmiPosSdk =
+                                                  SunmiPosSdk();
+                                                  await sunmiPosSdk.printReceipt(
+                                                      context,
+                                                      '$Token',
+                                                      '$Time',
+                                                      '$nameEn',
+                                                      '$nameBn',
+                                                      '$companyName',
+                                                      shouldDialog,
+                                                      '',
+                                                      '',
+                                                      '',
+                                                      '');
+
+                                                  showDialog(
+                                                    context: context,
+                                                    barrierDismissible: false,
+                                                    builder: (BuildContext context) {
+                                                      return Center(
+                                                        child: buildAlertDialog(Token,
+                                                            Time, '$nameEn ($nameBn)'),
+                                                      );
+                                                    },
+                                                  );
+
+                                                  setState(() {
+                                                    isLoadingIndex = -1;
+                                                  });
+                                                } else {
+                                                  print(
+                                                      'Failed to fetch data: ${response.statusCode}');
+                                                }
+                                              }
+                                              else if (shouldDialog == true) {
+                                                */ /* closeLoadingOverlay(context);*/ /*
+                                                Navigator.push(
+                                                    context,
+                                                    MaterialPageRoute(
+                                                      builder: (context) =>
+                                                          EnterDetailsPage(
+                                                            authToken: authToken,
+                                                            categoryID: categoryID,
+                                                            nameBn: nameBn,
+                                                            nameEn: nameEn,
+                                                            shouldDialog: shouldDialog,
+                                                            DocEn: DocEn,
+                                                            DocBn: DocBn,
+                                                            DocDesignation: DocDesignation,
+                                                            DocRoom: DocRoom,
+                                                          ),
+                                                    ));
+                                              }
+                                            },
+                                            child: shouldDialog
+                                                ? FittedBox(
+                                              fit: BoxFit.scaleDown,
+                                              child: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  SizedBox(
+                                                    height: 5,
+                                                  ),
+                                                  Text(
+                                                    '$DocEn ($DocBn), $DocDesignation, Room No (রুম নং): $DocRoom',
+                                                    style: TextStyle(
+                                                        fontSize: 25,
+                                                        color: Colors.white),
+                                                  ),
+                                                  SizedBox(
+                                                    height: 5,
+                                                  ),
+                                                  Text(
+                                                    '$nameEn ($nameBn)',
+                                                    style: const TextStyle(
+                                                      fontSize: 25,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: Colors.white,
+                                                    ),
+                                                  ),
+                                                  SizedBox(
+                                                    height: 5,
+                                                  ),
+                                                ],
+                                              ),
+                                            )
+                                                : FittedBox(
+                                              fit: BoxFit.scaleDown,
+                                              child: Text(
+                                                '$nameEn ($nameBn)',
+                                                style: const TextStyle(
+                                                  fontSize: 25,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.white,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          SizedBox(height: screenHeight * 0.01),
+                                        ],
+                                      );
+                                    },
+                                  );
+                                }).toList(),
+                              );
+                            },
+                          );
+                        },
+                      ),*/
+                          ],
+                        ),
                       ),
-                    ),
-                  );
-                } else if (value == 'input') {
-                  return SingleChildScrollView(
-                    child: Padding(
-                      padding: const EdgeInsets.all(32.0),
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Title inside the body with Bangla translation appended
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 16.0),
-                              child: Text(
-                                "Enter Details (বিবরণ লিখুন)",
-                                style: const TextStyle(
-                                  fontSize: 25,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.black,
-                                ),
-                              ),
-                            ),
-                            // Text field for Patient Name
-                            TextFormField(
-                              controller: nameController,
-                              decoration: const InputDecoration(
-                                labelText: 'Patient Name (রোগীর নাম)',
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            // Text field for Mobile Number
-                            TextFormField(
-                              controller: phoneController,
-                              decoration: const InputDecoration(
-                                labelText: 'Mobile Number (মোবাইল নম্বর)',
-                              ),
-                              keyboardType: TextInputType.phone,
-                              validator: validateBangladeshiPhoneNumber,
-                            ),
-                            const SizedBox(height: 10),
-                            // Display error message if any
-                            if (errorMessage.isNotEmpty)
-                              Text(
-                                errorMessage,
-                                style: const TextStyle(color: Colors.red),
-                                textAlign: TextAlign.center,
-                              ),
-                            const SizedBox(height: 20),
-                            // Centered Print button
-                            Center(
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                      Theme.of(context).colorScheme.primary,
-                                  primary: Theme.of(context).primaryColor,
-                                  fixedSize: Size(
-                                      screenWidth * 0.25, screenHeight * 0.12),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(
-                                        10.0), // Adjust the radius as needed
+                    );
+                  } else if (value == 'input') {
+                    return SingleChildScrollView(
+                      child: Padding(
+                        padding: const EdgeInsets.all(32.0),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Title inside the body with Bangla translation appended
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 16.0),
+                                child: Text(
+                                  "Enter Details (বিবরণ লিখুন)",
+                                  style: const TextStyle(
+                                    fontSize: 25,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black,
                                   ),
                                 ),
-                                onPressed: isLoading ? null : _handlePrint,
-                                child: isLoading
-                                    ? const CircularProgressIndicator()
-                                    : const Text(
+                              ),
+                              // Text field for Patient Name
+                              TextFormField(
+                                controller: nameController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Patient Name (রোগীর নাম)',
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              // Text field for Mobile Number
+                              TextFormField(
+                                controller: phoneController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Mobile Number (মোবাইল নম্বর)',
+                                ),
+                                keyboardType: TextInputType.phone,
+                                validator: validateBangladeshiPhoneNumber,
+                              ),
+                              const SizedBox(height: 10),
+                              // Display error message if any
+                              if (errorMessage.isNotEmpty)
+                                Text(
+                                  errorMessage,
+                                  style: const TextStyle(color: Colors.red),
+                                  textAlign: TextAlign.center,
+                                ),
+                              const SizedBox(height: 20),
+                              // Centered Print button
+                              Center(
+                                child: Row(
+                                  children: [
+                                    ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor:
+                                        Theme.of(context).colorScheme.primary,
+                                        primary: Theme.of(context).primaryColor,
+                                        fixedSize: Size(
+                                            screenWidth * 0.25, screenHeight * 0.12),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                              10.0), // Adjust the radius as needed
+                                        ),
+                                      ),
+                                      onPressed: isLoading ? null : _handlePrint,
+                                      child: isLoading
+                                          ? const CircularProgressIndicator()
+                                          : const Text(
                                         "Print",
                                         style: const TextStyle(
                                           fontSize: 25,
@@ -1202,19 +1227,47 @@ class _UIScreenState extends State<UIScreen> {
                                           color: Colors.white,
                                         ),
                                       ),
+                                    ),
+                                    SizedBox(width: 20,),
+                                    ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor:
+                                            Theme.of(context).colorScheme.primary,
+                                        primary: Theme.of(context).primaryColor,
+                                        fixedSize: Size(
+                                            screenWidth * 0.25, screenHeight * 0.12),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                              10.0), // Adjust the radius as needed
+                                        ),
+                                      ),
+                                      onPressed: () {
+                                        Restart.restartApp();
+                                      },
+                                      child: const Text(
+                                              "Refresh",
+                                              style: const TextStyle(
+                                                fontSize: 25,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
-                    ),
+                    );
+                  }
+                  return Container(
+                    color: Colors.white,
+                    child: CircularProgressIndicator(),
                   );
-                }
-                return Container(
-                  color: Colors.white,
-                  child: CircularProgressIndicator(),
-                );
-              },
+                },
+              ),
             ),
             bottomNavigationBar: Container(
               height: screenHeight * 0.075,
